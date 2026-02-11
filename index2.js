@@ -57,7 +57,7 @@ const upload = multer({ dest: 'uploads/', limits: { fileSize: 50 * 1024 * 1024 }
 app.use('/plots', express.static('plots'));
 
 // AI Model configuration
-const AI_MODEL_URL = process.env.AI_MODEL_URL;
+const AI_SERVER_URL = process.env.AI_SERVER_URL;
 const AI_MODEL_HEADERS = {
   "Authorization": `Bearer ${process.env.AI_MODEL_TOKEN}`
 };

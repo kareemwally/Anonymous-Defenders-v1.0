@@ -57,25 +57,33 @@ async function ensureAIHealthy(modelUrl, headers, explicitHealthUrl) {
  * Returns the AI model's response data.
  * Throws an error if the request fails.
  * @param {string} filePath - Path to the file to analyze
- * @param {string} [AI_MODEL_URL] - Optional override for the AI model URL
+ * @param {string} [AI_SERVER_URL] - Optional override for the AI server base URL
  * @param {object} [AI_MODEL_HEADERS] - Optional override for the AI model headers
- * @param {string} [AI_MODEL_HEALTH_URL] - Optional override for the AI model health URL
+ * @param {string} [AI_MODEL_HEALTH_URL] - Optional override for the AI model health URL (deprecated)
  * @returns {Promise<object>} - The AI model's response data
  */
-async function sendToAIModel(filePath, AI_MODEL_URL, AI_MODEL_HEADERS, AI_MODEL_HEALTH_URL) {
+async function sendToAIModel(filePath, AI_SERVER_URL, AI_MODEL_HEADERS, AI_MODEL_HEALTH_URL) {
   try {
     const fileContent = fs.readFileSync(filePath);
     const base64Content = fileContent.toString('base64');
     const payload = { file_bytes: base64Content };
-    const url = AI_MODEL_URL || process.env.AI_MODEL_URL;
+    const serverUrl = AI_SERVER_URL || process.env.AI_SERVER_URL;
     const headers = AI_MODEL_HEADERS || { "Authorization": `Bearer ${process.env.AI_MODEL_TOKEN}` };
-    const healthUrl = AI_MODEL_HEALTH_URL || process.env.AI_MODEL_HEALTH_URL || 'https://8000-dep-01k4nsrem33a9apxmbcx67crcj-d.cloudspaces.litng.ai/health';
+    
+    // Build predict URL by appending /predict to server URL
+    const predictUrl = serverUrl.endsWith('/') ? serverUrl + 'predict' : serverUrl + '/predict';
+    
+    // Build health URL - use explicit health URL if provided, otherwise append /health to server URL
+    let healthUrl = AI_MODEL_HEALTH_URL || process.env.AI_MODEL_HEALTH_URL;
+    if (!healthUrl) {
+      healthUrl = serverUrl.endsWith('/') ? serverUrl + 'health' : serverUrl + '/health';
+    }
 
     // Ensure AI server is awake/healthy before sending the file
-    await ensureAIHealthy(url, headers, healthUrl);
+    await ensureAIHealthy(predictUrl, headers, healthUrl);
 
     const timeout = Number(process.env.AI_REQUEST_TIMEOUT_MS || 120000); // default 2 minutes
-    const response = await axios.post(url, payload, {
+    const response = await axios.post(predictUrl, payload, {
       headers,
       timeout
     });
