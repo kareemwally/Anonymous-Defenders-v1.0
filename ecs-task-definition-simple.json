@@ -1,0 +1,151 @@
+{
+  "family": "anonymous-defenders",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::117030212338:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::117030212338:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "anonymous-defenders",
+      "image": "117030212338.dkr.ecr.us-east-1.amazonaws.com/anonymous_defenders:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "FRONTEND_URL",
+          "value": "https://anonymous-defenders.vercel.app"
+        },
+        {
+          "name": "AI_MODEL_TOKEN",
+          "value": "f5697e0c-1a07-4da7-912b-fccf3eadd33a"
+        },
+        {
+          "name": "AI_SERVER_URL",
+          "value": "https://8000-dep-01k4nsrem33a9apxmbcx67crcj-d.cloudspaces.litng.ai"
+        },
+        {
+          "name": "EMAIL_HOST",
+          "value": "smtp.gmail.com"
+        },
+        {
+          "name": "EMAIL_PORT",
+          "value": "587"
+        },
+        {
+          "name": "EMAIL_USER",
+          "value": "kareemwally7@gmail.com"
+        },
+        {
+          "name": "EMAIL_PASS",
+          "value": "plyakkrjqjbetnzh"
+        },
+        {
+          "name": "SUPPORT_EMAIL",
+          "value": "kareemwally7@gmail.com"
+        },
+        {
+          "name": "FREE_PLAN_DAILY_LIMIT",
+          "value": "3"
+        },
+        {
+          "name": "PLAN_A_DAILY_LIMIT",
+          "value": "10"
+        },
+        {
+          "name": "PLAN_B_DAILY_LIMIT",
+          "value": "25"
+        },
+        {
+          "name": "PLAN_C_DAILY_LIMIT",
+          "value": "50"
+        },
+        {
+          "name": "PLAN_D_DAILY_LIMIT",
+          "value": "100"
+        },
+        {
+          "name": "PLAN_A_MONTHLY_PRICE",
+          "value": "300"
+        },
+        {
+          "name": "PLAN_B_MONTHLY_PRICE",
+          "value": "600"
+        },
+        {
+          "name": "PLAN_C_MONTHLY_PRICE",
+          "value": "1200"
+        },
+        {
+          "name": "PLAN_D_MONTHLY_PRICE",
+          "value": "2400"
+        },
+        {
+          "name": "PAYMOB_API_KEY",
+          "value": "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmpiR0Z6Y3lJNklrMWxjbU5vWVc1MElpd2ljSEp2Wm1sc1pWOXdheUk2TVRFek9Ea3pOaXdpYm1GdFpTSTZJbWx1YVhScFlXd2lmUS5MSG9YdWpmWC1GMmZnSVpmU05LQktoOUZUV3VKa3JGRVl5REw3YlN2TDgybnFjXzQxcjZGVDd15Wm9tbF8zbUk3c3d3MVBvei1JeE1pX1VjSnNMN2dEZw=="
+        },
+        {
+          "name": "PAYMOB_INTEGRATION_ID",
+          "value": "5572353"
+        },
+        {
+          "name": "PAYMOB_WALLET_INTEGRATION_ID",
+          "value": "5572396"
+        },
+        {
+          "name": "PAYMOB_CARD_INTEGRATION_ID",
+          "value": "5572353"
+        },
+        {
+          "name": "PAYMOB_HMAC_SECRET",
+          "value": "1E8CE0A51EE26A6FB10E2A14C9BEC4CA"
+        },
+        {
+          "name": "PAYMOB_IFRAME_ID",
+          "value": "1013390"
+        },
+        {
+          "name": "DB_URI",
+          "value": "mongodb+srv://Anoy_User:=f9cW2_8TLsc2W9@myatlasclusteredu.mvc0fy6.mongodb.net/Anonymous?retryWrites=true&w=majority&appName=myAtlasClusterEDU"
+        },
+        {
+          "name": "JWT_SECRET",
+          "value": "your-super-secret-jwt-key-change-this-in-production"
+        },
+        {
+          "name": "GOOGLE_CLIENT_ID",
+          "value": "1024342754623-d3daqj75k2urr5q8v82uo2q2pn4im7vo.apps.googleusercontent.com"
+        },
+        {
+          "name": "GOOGLE_CLIENT_SECRET",
+          "value": "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"
+        },
+        {
+          "name": "GITHUB_CLIENT_ID",
+          "value": "Ov23liMiCLgjiZGvrREv"
+        },
+        {
+          "name": "GITHUB_CLIENT_SECRET",
+          "value": "3e951bfce654f348072eb305f1b1ddbcb5aacb80"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/anonymous-defenders",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
