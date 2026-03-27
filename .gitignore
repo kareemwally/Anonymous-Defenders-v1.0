@@ -180,17 +180,6 @@ desktop.ini
 # Test scripts and temporary files
 test.txt
 API-main.zip
-*.ps1
-get-*.ps1
-check-*.ps1
-setup-*.ps1
-create-*.ps1
-update-*.ps1
-verify-*.ps1
-build-*.ps1
-
-# Temporary PowerShell scripts
-*.ps1
 
 # AWS temporary files
 task-definition.json

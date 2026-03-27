@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "test": "nodemon test-auth.js",
-    "start": "node index2.js"
+    "start": "node index2.js",
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev-setup-simple.ps1",
+    "dev:docker": "powershell -ExecutionPolicy Bypass -File scripts/dev-setup-fixed.ps1",
+    "dev:stop": "docker stop anonymous-defenders-dev",
+    "dev:logs": "docker logs -f anonymous-defenders-dev",
+    "dev:clean": "docker rm -f anonymous-defenders-dev"
   },
   "keywords": [],
   "author": "",

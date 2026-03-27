@@ -3,7 +3,15 @@ const multer = require('multer');
 const path = require('path');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-dotenv.config({path: 'config.env'});
+
+// Try to load from config.env first, fallback to environment variables
+try {
+  dotenv.config({path: 'config.env'});
+  console.log('Loaded config.env');
+} catch (err) {
+  console.log('config.env not found, using environment variables');
+  dotenv.config(); // Load from process.env
+}
 const fs = require('fs');
 const { spawn } = require('child_process');
 const cors = require('cors');
@@ -28,6 +36,7 @@ const Complaint = require('./models/Complaint');
 // Import middleware
 const auth = require('./middleware/auth');
 const optionalAuth = require('./middleware/optionalAuth');
+const guestAbusePrevention = require('./middleware/guestAbuse');
 
 // Import helper functions
 const sendToAIModel = require('./helpers/sendToAIModel'); // Sends file to AI model for analysis
@@ -646,6 +655,15 @@ app.post('/complaints', async (req, res) => {
     res.status(500).json({ error: 'Server error while submitting complaint.' });
   }
 });
+
+// Guest User Routes
+app.use('/api/guest', require('./routes/guest'));
+
+// Subscription Routes
+app.use('/api/subscription', require('./routes/subscription'));
+
+// Apply guest abuse prevention middleware to upload routes
+app.use('/api/upload', guestAbusePrevention);
 
 app.listen(port,() => {
   console.log(`Node.js server listening at http://localhost:${port}`);

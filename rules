@@ -1,0 +1,8 @@
+طيب انا هقولك علي حاجة احنا هنشتغل من الاول خالص
+احنا عايزين نعمل ايه:
+اولا: اقرأ ال codebase  وافهمه كويس
+انا عايز اعمل github action يصمنلي workflow من خلاله بمجرد ما اعمل git push يبني service في الcluster بتاع ال  ECS 
+عشان اقدر اشوف الfeatures الي بشتغل عليها وبعملها development
+ال infrastructure اللي هنشتغل عليها هتكون
+loadbalancer: بيستقبل https requests ويرسلها للا service
+ecs cluster: بيحتوي علي services

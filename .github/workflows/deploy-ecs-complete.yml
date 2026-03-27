@@ -1,0 +1,86 @@
+name: Complete Deploy to ECS
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: anonymous_defenders
+  ECS_SERVICE: anonymous-defenders-service
+  ECS_CLUSTER: anonymous-defenders
+  CONTAINER_NAME: anonymous-defenders
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        echo "Building image with tag: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+    - name: Create CloudWatch Log Group
+      run: |
+        aws logs create-log-group --log-group-name /ecs/anonymous-defenders --region $AWS_REGION || true
+        
+    - name: Register Amazon ECS task definition
+      id: register-task-definition
+      run: |
+        # Install jq
+        sudo apt-get update && sudo apt-get install -y jq
+        
+        # Update task definition with new image
+        jq '.containerDefinitions[0].image = "${{ steps.build-image.outputs.image }}"' ecs-task-definition-simple.json > temp-task-definition.json
+        
+        # Register task definition
+        aws ecs register-task-definition --cli-input-json file://temp-task-definition.json --output text > task-definition.json
+        TASK_REVISION=$(cat task-definition.json | grep revision | awk '{print $2}')
+        echo "task-definition-revision=$TASK_REVISION" >> $GITHUB_OUTPUT
+        
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: anonymous-defenders
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+        
+    - name: Verify deployment
+      run: |
+        echo "Waiting for deployment to stabilize..."
+        sleep 60
+        
+        # Check service status
+        aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services ${{ env.ECS_SERVICE }} --query 'services[0].{status:status,runningCount:runningCount,desiredCount:desiredCount}'
+        
+        # Check running tasks
+        aws ecs list-tasks --cluster ${{ env.ECS_CLUSTER }} --query 'taskArns'
+        
+        echo "Deployment completed successfully!"
+        echo "Load Balancer URL: http://anonymous-defenders-alb-593198813.us-east-1.elb.amazonaws.com"
