@@ -32,11 +32,13 @@ const File = require('./models/File');
 const AnalysisReport = require('./models/AnalysisReport');
 const User = require('./models/User');
 const Complaint = require('./models/Complaint');
+const ApiKey = require('./models/ApiKey');
 
 // Import middleware
 const auth = require('./middleware/auth');
 const optionalAuth = require('./middleware/optionalAuth');
 const guestAbusePrevention = require('./middleware/guestAbuse');
+const { apiKeyAuth } = require('./middleware/apiKeyAuth');
 
 // Import helper functions
 const sendToAIModel = require('./helpers/sendToAIModel'); // Sends file to AI model for analysis
@@ -661,6 +663,12 @@ app.use('/api/guest', require('./routes/guest'));
 
 // Subscription Routes
 app.use('/api/subscription', require('./routes/subscription'));
+
+// API Key Routes
+app.use('/api/keys', require('./routes/apiKeys'));
+
+// API Upload Routes
+app.use('/api/v1', require('./routes/apiUpload'));
 
 // Apply guest abuse prevention middleware to upload routes
 app.use('/api/upload', guestAbusePrevention);
