@@ -673,6 +673,6 @@ app.use('/api/v1', require('./routes/apiUpload'));
 // Apply guest abuse prevention middleware to upload routes
 app.use('/api/upload', guestAbusePrevention);
 
-app.listen(port,() => {
-  console.log(`Node.js server listening at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Node.js server listening at http://0.0.0.0:${port}`);
 });
