@@ -670,6 +670,9 @@ app.use('/api/keys', require('./routes/apiKeys'));
 // API Upload Routes
 app.use('/api/v1', require('./routes/apiUpload'));
 
+// Health Check Routes
+app.use('/health', require('./routes/health'));
+
 // Apply guest abuse prevention middleware to upload routes
 app.use('/api/upload', guestAbusePrevention);
 
