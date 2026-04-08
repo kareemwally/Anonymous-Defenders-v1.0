@@ -195,3 +195,6 @@ output_example.txt
 
 # Install commands
 Install commands.txt
+
+*.ps1
+*.md
