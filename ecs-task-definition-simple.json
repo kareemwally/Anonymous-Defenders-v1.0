@@ -140,11 +140,11 @@
         },
         {
           "name": "PLOTS_BASE_URL",
-          "value": "http://anonymous-defenders-alb-593198813.us-east-1.elb.amazonaws.com"
+          "value": "https://anonymousdefenders.com"
         },
         {
           "name": "OAUTH_CALLBACK_BASE",
-          "value": "http://anonymous-defenders-alb-593198813.us-east-1.elb.amazonaws.com"
+          "value": "https://anonymousdefenders.com"
         },
         {
           "name": "API_ENABLED",

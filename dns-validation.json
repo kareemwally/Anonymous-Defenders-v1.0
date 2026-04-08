@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_3ab6420eb65b23842c0b9b599e9faf54.anonymous-defenders.com.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_7c1680b9b608c81cf2f34feb60c58ab7.jkddzztszm.acm-validations.aws."
+          }
+        ]
+      }
+    }
+  ]
+}

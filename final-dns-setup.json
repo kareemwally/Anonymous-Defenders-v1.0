@@ -1,0 +1,41 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_7525709c659a4a63af8f073693ef3373.anonymousdefenders.com.",
+        "Type": "CNAME",
+        "TTL": 60,
+        "ResourceRecords": [
+          {
+            "Value": "_2bf193a4ade331c0e234286fc37b3f27.jkddzztszm.acm-validations.aws."
+          }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "anonymousdefenders.com.",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z35SXDOTRQ7X7K",
+          "DNSName": "dualstack.anonymous-defenders-alb-593198813.us-east-1.elb.amazonaws.com.",
+          "EvaluateTargetHealth": true
+        }
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.anonymousdefenders.com.",
+        "Type": "A",
+        "AliasTarget": {
+          "HostedZoneId": "Z35SXDOTRQ7X7K",
+          "DNSName": "dualstack.anonymous-defenders-alb-593198813.us-east-1.elb.amazonaws.com.",
+          "EvaluateTargetHealth": true
+        }
+      }
+    }
+  ]
+}
