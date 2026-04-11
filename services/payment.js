@@ -55,7 +55,7 @@ class PaymobService {
     }
 
     // 3. Create Payment Intent (Auth -> Order -> Payment Key)
-    async createPaymentIntent(amount, tier, userId, userEmail) {
+    async createPaymentIntent(amount, tier, userId, userEmail, method = 'card') {
         try {
             // 1. Get Auth Token
             const token = await this.getAuthToken();
@@ -86,6 +86,14 @@ class PaymobService {
             
             const orderId = orderResponse.data.id;
 
+            // Select Integration ID based on method
+            let integrationId = this.integrationId; // Default
+            if (method === 'wallet') {
+                integrationId = this.walletIntegrationId;
+            } else if (method === 'card') {
+                integrationId = this.cardIntegrationId;
+            }
+
             // 3. Payment Key Generation
             const paymentKeyData = {
                 auth_token: token,
@@ -108,7 +116,7 @@ class PaymobService {
                     state: "NA"
                 },
                 currency: "EGP",
-                integration_id: this.integrationId
+                integration_id: integrationId
             };
 
             const paymentKeyResponse = await axios.post(
@@ -292,7 +300,13 @@ class PaymobService {
         const User = require('../models/User');
         try {
             const payment = await Payment.findOne({ orderId: orderId });
-            if (!payment || payment.status !== 'completed') return;
+            if (!payment) return;
+            
+            // Replay Attack Protection: Check if payment was already successfully processed
+            if (payment.status === 'completed') {
+                console.log(`Payment for order ${orderId} is already completed. Skipping.`);
+                return;
+            }
 
             const user = await User.findById(payment.user);
             if (!user) return;
@@ -304,21 +318,15 @@ class PaymobService {
             const endDate = new Date();
             endDate.setMonth(endDate.getMonth() + 1); // 1 month duration
 
-            // Update user document
+            // Update user document using the flat fields defined in User.js schema
             await User.findByIdAndUpdate(user._id, {
-                subscription: {
-                    plan: payment.tier,
-                    status: 'active',
-                    startDate: startDate,
-                    endDate: endDate
-                },
-                subscriptionTier: payment.tier, // Backward compatibility
+                subscriptionTier: payment.tier,
                 isActiveSubscription: true,
                 subscriptionStartDate: startDate,
                 subscriptionEndDate: endDate,
                 uploadQuota: tierDetails.uploads,
-                uploadCount: 0, // Reset usage on new subscription
-                dailyUploadLimit: tierDetails.uploads // Or whatever logic you prefer for daily limit vs total
+                // Reset usage on new/renewed subscription
+                uploadCount: 0
             });
             
             console.log(`Successfully activated subscription ${payment.tier} for user ${user.email}`);

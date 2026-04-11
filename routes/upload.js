@@ -7,7 +7,8 @@ const guestAbusePrevention = require('../middleware/guestAbuse');
 
 const upload = multer({ dest: 'uploads/', limits: { fileSize: 50 * 1024 * 1024 } });
 
-router.post('/', optionalAuth, guestAbusePrevention, upload.single('file'), uploadController.uploadFile);
+router.post('/upload', optionalAuth, guestAbusePrevention, upload.single('file'), uploadController.uploadFile);
 router.get('/plots/:filename', uploadController.getPlot);
+
 
 module.exports = router;

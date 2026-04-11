@@ -12,11 +12,11 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, required: false, unique: true, sparse: true },
   githubId: { type: String, required: false, unique: true, sparse: true },
   
-  // Guest User Fields
+    // Guest User Fields
   isGuest: { type: Boolean, default: false },
-  macAddress: { type: String, sparse: true },
   ipAddress: { type: String, sparse: true },
   uploadCount: { type: Number, default: 0 },
+
   lastUploadDate: { type: Date, sparse: true },
   dailyUploadLimit: { type: Number, default: 3 },
   isBlocked: { type: Boolean, default: false },

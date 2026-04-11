@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const User = require('../models/User');
 
 // Anonymous Guest Abuse Prevention Middleware
@@ -8,11 +9,16 @@ const guestAbusePrevention = async (req, res, next) => {
             return next();
         }
         
-        // Get client IP for tracking
-        const clientIP = req.headers['x-forwarded-for'] || 
+        // Get client IP for tracking (Handle potential proxy list)
+        let clientIP = req.headers['x-forwarded-for'] || 
                        req.headers['x-real-ip'] || 
                        req.connection.remoteAddress || 
                        req.socket.remoteAddress;
+        
+        // If x-forwarded-for contains a list, take the first one
+        if (clientIP && clientIP.includes(',')) {
+            clientIP = clientIP.split(',')[0].trim();
+        }
         
         // Check if this is a guest upload endpoint
         if (req.path.includes('/upload') && req.method === 'POST') {
@@ -68,9 +74,22 @@ const guestAbusePrevention = async (req, res, next) => {
                 req.remainingUploads = guestUser.dailyUploadLimit - currentUploadCount;
                 req.clientIP = clientIP;
             } else {
-                // New anonymous guest - they can upload
+                // Create new anonymous guest in DB to track them properly with guaranteed uniqueness
+                const randomId = crypto.randomBytes(4).toString('hex');
+                const newGuest = await User.create({
+                    name: 'Guest User',
+                    username: `guest_${randomId}_${Date.now()}`,
+                    email: `guest_${randomId}@anonymous-defenders.com`, 
+                    isGuest: true,
+                    ipAddress: clientIP,
+                    uploadCount: 0,
+                    dailyUploadLimit: 3,
+                    lastUploadDate: new Date()
+                });
+                
+                req.guestUser = newGuest;
                 req.clientIP = clientIP;
-                req.remainingUploads = 3; // Fresh guest gets 3 uploads
+                req.remainingUploads = 3;
             }
         }
         

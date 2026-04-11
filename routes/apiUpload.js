@@ -4,13 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { apiKeyAuth, requirePermission } = require('../middleware/apiKeyAuth');
-const runPythonScript = require('../helpers/runPythonScript');
-const sendToAIModel = require('../helpers/sendToAIModel');
-const isFileSizeSuitable = require('../helpers/isFileSizeSuitable');
-
-const ANALYZER_SCRIPT_PATH = path.join('py-scripts', 'Static Malware Analyzer.py');
-const HASH_SCRIPT_PATH = path.join('py-scripts', 'get-hashes.py');
-const PLOTS_BASE_URL = process.env.PLOTS_BASE_URL || process.env.OAUTH_CALLBACK_BASE?.replace(/\/$/, '') || '';
+const uploadController = require('../controllers/uploadController');
 
 // Configure multer for API uploads
 const storage = multer.diskStorage({
@@ -37,105 +31,7 @@ const upload = multer({
 });
 
 // API Upload and Analyze endpoint
-router.post('/upload', apiKeyAuth, requirePermission('upload'), upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded.' });
-  }
-
-  const filePath = req.file.path;
-  const originalName = req.file.originalname;
-  const password = req.body.password || '';
-  const userId = req.user._id;
-
-  try {
-    const args = [filePath, originalName];
-    if (password) args.push(password);
-    const isArchive = /\.(zip|rar|7z)$/i.test(originalName);
-    if (isArchive) args.push('--keep-extracted');
-
-    // Run Static Analysis
-    const analysisResult = await runPythonScript(ANALYZER_SCRIPT_PATH, args);
-
-    if (analysisResult && analysisResult.error && analysisResult.error.trim() === 'password is wrong') {
-      await fs.unlink(filePath).catch(() => {});
-      return res.status(400).json({ error: 'Password is wrong' });
-    }
-
-    const results = [];
-    const filesToCleanup = [filePath];
-
-    for (const sample of analysisResult.results) {
-      const sampleFile = sample.filename;
-      const samplePath = sample.file_path;
-      if (samplePath && samplePath !== filePath) filesToCleanup.push(samplePath);
-      
-      let hashResult = null;
-      let aiResult = null;
-      const plotLinks = (sample.plots || []).map(p => `${PLOTS_BASE_URL}/api/plots/${path.basename(p)}`);
-
-      if (sample.analysis && sample.analysis.error) {
-        results.push({
-          filename: sampleFile,
-          error: sample.analysis.error,
-          status: 'error'
-        });
-        continue;
-      }
-
-      if (samplePath) {
-        try {
-          // Get Hashes
-          hashResult = await runPythonScript(HASH_SCRIPT_PATH, [samplePath]);
-          
-          // Run AI Model if suitable
-          if (isFileSizeSuitable(samplePath)) {
-            try {
-              aiResult = await sendToAIModel(samplePath);
-            } catch (aiError) {
-              console.error(`API Analysis - Sample ${sampleFile} AI Error:`, aiError);
-            }
-          }
-        } catch (err) {
-          console.error(`API Analysis - Sample ${sampleFile} Hash Error:`, err);
-        }
-      }
-
-      results.push({
-        filename: sampleFile,
-        staticAnalysis: sample.analysis,
-        plots: plotLinks,
-        hashes: hashResult,
-        aiPrediction: aiResult ? {
-          prediction: aiResult.predictions_file,
-          probability: aiResult.probability_file,
-          familyPredictions: aiResult.predictions_family
-        } : null
-      });
-    }
-
-    // Update API Key usage stats
-    await req.apiKey.updateUsage();
-
-    res.json({ 
-      success: true,
-      results,
-      apiUsage: {
-        remainingDaily: req.apiKey.rateLimit.requestsPerDay - req.apiKey.usage.daily.count,
-        limitDaily: req.apiKey.rateLimit.requestsPerDay
-      }
-    });
-
-    // Cleanup files
-    for (const f of filesToCleanup) {
-      await fs.unlink(f).catch(() => {});
-    }
-
-  } catch (error) {
-    console.error('API processing error:', error);
-    await fs.unlink(filePath).catch(() => {});
-    res.status(500).json({ error: 'Processing failed', message: error.message });
-  }
-});
+router.post('/upload', apiKeyAuth, requirePermission('upload'), upload.single('file'), uploadController.uploadFile);
 
 // API Status endpoint
 router.get('/status', apiKeyAuth, requirePermission('read'), async (req, res) => {
