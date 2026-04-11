@@ -117,18 +117,25 @@ router.get('/status', async (req, res) => {
         }
 
         const paymobService = new PaymobService();
-        const currentTier = user.subscriptionTier || 'Free';
+        const currentPlan = user.subscriptionTier || 'free';
+        const limits = planLimits[currentPlan] || planLimits['free'];
+
+        if (userApiKeys.length >= limits.maxKeys) {
+            return res.status(400).json({
+                error: `Maximum API keys limit reached for ${currentPlan} plan (${limits.maxKeys} keys)`
+            });
+        }
+
         const tierDetails = user.subscriptionTier ? paymobService.getTierDetails(user.subscriptionTier) : {
             name: 'Free',
             uploads: 3,
             price: 0,
             description: 'Guest user with limited uploads'
         };
-
-        res.status(200).json({
-            success: true,
+            res.status(200).json({
+                success: true,
             subscription: {
-                tier: currentTier,
+                tier: currentPlan,
                 tierDetails,
                 uploadQuota: user.uploadQuota,
                 uploadCount: user.uploadCount,
@@ -137,8 +144,7 @@ router.get('/status', async (req, res) => {
                 subscriptionStartDate: user.subscriptionStartDate,
                 subscriptionEndDate: user.subscriptionEndDate
             }
-        });
-
+            });
     } catch (error) {
         console.error('Get subscription status error:', error);
         res.status(500).json({
@@ -162,12 +168,10 @@ router.post('/cancel', async (req, res) => {
             isActiveSubscription: false,
             subscriptionEndDate: new Date()
         });
-
         res.status(200).json({
             success: true,
             message: 'Subscription cancelled successfully'
         });
-
     } catch (error) {
         console.error('Cancel subscription error:', error);
         res.status(500).json({
@@ -186,7 +190,6 @@ router.post('/upgrade/:tier', async (req, res) => {
                 error: 'Authentication required'
             });
         }
-
         const { tier } = req.params;
         const validTiers = ['A', 'B', 'C', 'D'];
         
@@ -196,7 +199,6 @@ router.post('/upgrade/:tier', async (req, res) => {
                 error: 'Invalid subscription tier'
             });
         }
-
         const paymobService = new PaymobService();
         const tierDetails = paymobService.getTierDetails(tier);
 
@@ -207,7 +209,6 @@ router.post('/upgrade/:tier', async (req, res) => {
             req.user._id,
             req.user.email
         );
-
         if (paymentResult.success) {
             res.status(200).json({
                 success: true,
@@ -235,28 +236,115 @@ router.post('/upgrade/:tier', async (req, res) => {
 // Paymob webhook endpoint
 router.post('/webhook', async (req, res) => {
     try {
-        const signature = req.headers['hmac-sha512'];
+        // Paymob can send HMAC in query params or headers
+        const hmac = req.query.hmac || req.headers['hmac'] || req.headers['hmac-sha512'];
         const payload = req.body;
 
+        if (!hmac) {
+            console.error('Webhook Error: Missing HMAC signature');
+            return res.status(400).json({ success: false, error: 'Missing HMAC signature' });
+        }
+
         const paymobService = new PaymobService();
-        const result = await paymobService.processWebhook(payload, signature);
+        
+        // Process the webhook and verify HMAC internally in the service
+        const result = await paymobService.processWebhook(payload, hmac);
 
         if (result.success) {
-            res.status(200).json({ success: true });
+            // Paymob expects a 200 OK status to acknowledge receipt
+            res.status(200).send('success');
         } else {
-            res.status(400).json({ 
-                success: false, 
-                error: result.error 
-            });
+            console.error('Webhook Processing Failed:', result.error);
+            // We return 200 anyway in some cases so Paymob doesn't keep retrying 
+            // if it's an authentication/business logic error
+            res.status(200).send('acknowledged but failed');
         }
 
     } catch (error) {
-        console.error('Webhook error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Webhook processing failed'
-        });
+        console.error('Webhook Route Error:', error);
+        res.status(500).send('internal server error');
     }
 });
 
 module.exports = router;
+
+
+
+    } catch (error) {
+
+
+
+        console.error('Cancel subscription error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to cancel subscription'
+});
+
+
+
+// Upgrade subscription
+router.post('/upgrade/:tier', async (req, res) => {
+    try {
+
+
+
+
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                error: 'Authentication required'
+            });
+        }
+        const { tier } = req.params;
+        const validTiers = ['A', 'B', 'C', 'D'];
+
+        if (!validTiers.includes(tier)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid subscription tier'
+            });
+        }
+        const paymobService = new PaymobService();
+        
+
+
+
+
+
+
+        // Create payment intent for upgrade
+        const paymentResult = await paymobService.createPaymentIntent(
+            tierDetails.price,
+            tier,
+            req.user._id,
+            req.user.email
+        );
+        if (paymentResult.success) {
+            res.status(200).json({
+                success: true,
+                message: 'Payment intent created for upgrade',
+                paymentKey: paymentResult.paymentKey,
+                iframeId: paymentResult.iframeId,
+                newTier: tierDetails
+            });
+        } else {
+
+
+
+            res.status(400).json({
+                success: false,
+                error: paymentResult.error
+            });
+        }
+    } catch (error) {
+
+
+
+        console.error('Upgrade subscription error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to create upgrade payment'
+});
+
+module.exports = router;
+

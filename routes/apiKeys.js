@@ -51,11 +51,11 @@ router.post('/', auth, createKeyLimit, async (req, res) => {
     
     // Get user's subscription plan
     const user = await User.findById(req.user._id);
-    if (!user || !user.subscription) {
-      return res.status(400).json({ error: 'No active subscription found' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
     
-    // Check API key limits based on subscription
+    // Check API key limits based on subscription tier
     const userApiKeys = await ApiKey.find({ userId: req.user._id, status: 'active' });
     const planLimits = {
       'free': { maxKeys: 0, requestsPerDay: 0, requestsPerMonth: 0 },
@@ -65,11 +65,13 @@ router.post('/', auth, createKeyLimit, async (req, res) => {
       'D': { maxKeys: 20, requestsPerDay: 500, requestsPerMonth: 30000 }
     };
     
-    const limits = planLimits[user.subscription.plan] || planLimits['free'];
+    // Use subscriptionTier from User model
+    const currentTier = user.subscriptionTier || 'free';
+    const limits = planLimits[currentTier] || planLimits['free'];
     
     if (userApiKeys.length >= limits.maxKeys) {
       return res.status(400).json({ 
-        error: `Maximum API keys limit reached for ${user.subscription.plan} plan (${limits.maxKeys} keys)` 
+        error: `Maximum API keys limit reached for ${currentTier} plan (${limits.maxKeys} keys)` 
       });
     }
     
