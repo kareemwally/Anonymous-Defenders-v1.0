@@ -64,6 +64,7 @@ async function ensureAIHealthy(modelUrl, headers, explicitHealthUrl) {
  */
 async function sendToAIModel(filePath, AI_SERVER_URL, AI_MODEL_HEADERS, AI_MODEL_HEALTH_URL) {
   try {
+    console.log(`[sendToAIModel] Attempting to send file: ${filePath}`);
     const fileContent = fs.readFileSync(filePath);
     const base64Content = fileContent.toString('base64');
     const payload = { file_bytes: base64Content };
@@ -72,24 +73,29 @@ async function sendToAIModel(filePath, AI_SERVER_URL, AI_MODEL_HEADERS, AI_MODEL
     
     // Build predict URL by appending /predict to server URL
     const predictUrl = serverUrl.endsWith('/') ? serverUrl + 'predict' : serverUrl + '/predict';
+    console.log(`[sendToAIModel] predictUrl: ${predictUrl}`);
     
     // Build health URL - use explicit health URL if provided, otherwise append /health to server URL
     let healthUrl = AI_MODEL_HEALTH_URL || process.env.AI_MODEL_HEALTH_URL;
     if (!healthUrl) {
       healthUrl = serverUrl.endsWith('/') ? serverUrl + 'health' : serverUrl + '/health';
     }
+    console.log(`[sendToAIModel] healthUrl: ${healthUrl}`);
 
     // Ensure AI server is awake/healthy before sending the file
+    console.log(`[sendToAIModel] Running ensureAIHealthy check...`);
     await ensureAIHealthy(predictUrl, headers, healthUrl);
+    console.log(`[sendToAIModel] ensureAIHealthy passed! Sending POST request...`);
 
     const timeout = Number(process.env.AI_REQUEST_TIMEOUT_MS || 120000); // default 2 minutes
     const response = await axios.post(predictUrl, payload, {
       headers,
       timeout
     });
+    console.log(`[sendToAIModel] AI response received successfully!`);
     return response.data;
   } catch (error) {
-    console.error('AI Model Error:', error.response?.data || error.message);
+    console.error('[sendToAIModel] AI Model Error:', error.response?.data || error.message);
     throw new Error(`AI Model request failed: ${error.message}`);
   }
 }

@@ -110,8 +110,10 @@ exports.uploadFile = async (req, res) => {
                   userId: userId
                 });
                 if (isFileSizeSuitable(samplePath)) {
+                  console.log(`[Upload] File size suitable for AI: ${samplePath}`);
                   try {
                     aiResult = await sendToAIModel(samplePath);
+                    console.log(`[Upload] AI Result received:`, !!aiResult);
                     if (!aiResult.predictions_file) {
                       throw new Error('AI model did not return predictions_file');
                     }
