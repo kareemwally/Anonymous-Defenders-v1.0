@@ -30,10 +30,10 @@ function resolveUserIdentity(req) {
 }
 
 /**
- * Checks upload quota for registered non-API-key users.
+ * Checks upload quota for registered users.
  */
 function isQuotaExceeded(userDoc, isApiKeyRequest) {
-  if (isApiKeyRequest || !userDoc || userDoc.isGuest) return false;
+  if (!userDoc || userDoc.isGuest) return false;
   const uploadQuota = userDoc.uploadQuota || 3;
   return userDoc.uploadCount >= uploadQuota;
 }
@@ -209,7 +209,7 @@ exports.uploadFile = async (req, res) => {
     const newSamplesCount = results.filter(r => r.dbStatus !== 'already_uploaded_by_user').length;
     console.log(`[Upload] newSamplesCount: ${newSamplesCount}`);
 
-    if (!isApiKeyRequest && userDoc && newSamplesCount > 0) {
+    if (userDoc && newSamplesCount > 0) {
       console.log(`[Upload] Updating uploadCount for user ${userDoc._id}. Current count: ${userDoc.uploadCount}`);
       await User.findByIdAndUpdate(userDoc._id, { 
         $inc: { uploadCount: newSamplesCount },
