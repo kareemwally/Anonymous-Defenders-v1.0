@@ -32,7 +32,7 @@
         },
         {
           "name": "AI_SERVER_URL",
-          "value": "https://8000-dep-01kh64w5vt38j5mgghgd0ps40c-d.cloudspaces.litng.ai/predict"
+          "value": "https://8000-dep-01kh64w5vt38j5mgghgd0ps40c-d.cloudspaces.litng.ai"
         },
         {
           "name": "EMAIL_HOST",
