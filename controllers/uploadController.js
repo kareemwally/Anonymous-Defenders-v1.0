@@ -36,8 +36,11 @@ exports.uploadFile = async (req, res) => {
 
     console.log(`[Upload] User resolved. ID: ${userId}, isGuest: ${userDoc?.isGuest}`);
 
+    const isApiKeyRequest = !!req.apiKey;
+
     // Check Quota for registered users (Guests are already checked in guestAbusePrevention)
-    if (userDoc && !userDoc.isGuest) {
+    // Skip this check if it's an API Key request, since API Keys have their own rate limits
+    if (!isApiKeyRequest && userDoc && !userDoc.isGuest) {
         const uploadQuota = userDoc.uploadQuota || 3;
         if (userDoc.uploadCount >= uploadQuota) {
             console.log(`[Upload] Quota exceeded for user ${userId}. Count: ${userDoc.uploadCount}, Quota: ${uploadQuota}`);
@@ -156,7 +159,7 @@ exports.uploadFile = async (req, res) => {
       
       console.log(`[Upload] newSamplesCount: ${newSamplesCount}`);
       
-      if (userDoc && newSamplesCount > 0) {
+      if (!isApiKeyRequest && userDoc && newSamplesCount > 0) {
         console.log(`[Upload] Updating uploadCount for user ${userDoc._id}. Current count: ${userDoc.uploadCount}`);
         const updatedUser = await User.findByIdAndUpdate(userDoc._id, { 
           $inc: { uploadCount: newSamplesCount },
@@ -164,14 +167,15 @@ exports.uploadFile = async (req, res) => {
         }, { new: true });
         console.log(`[Upload] Updated uploadCount: ${updatedUser.uploadCount}`);
       } else {
-        console.log(`[Upload] Not updating uploadCount. userDoc exists: ${!!userDoc}, newSamplesCount: ${newSamplesCount}`);
+        console.log(`[Upload] Not updating uploadCount. isApiKeyRequest: ${isApiKeyRequest}, userDoc exists: ${!!userDoc}, newSamplesCount: ${newSamplesCount}`);
       }
 
 
       // If request came from API Key, update key usage as well
-      if (req.apiKey && typeof req.apiKey.updateUsage === 'function') {
-        await req.apiKey.updateUsage();
-      }
+      // Removed the duplicate update since apiKeyAuth middleware already calls updateUsage()
+      // if (req.apiKey && typeof req.apiKey.updateUsage === 'function') {
+      //   await req.apiKey.updateUsage();
+      // }
 
       res.json({ results });
       fs.unlink(filePath, () => {});

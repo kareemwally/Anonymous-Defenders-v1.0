@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const PaymobService = require('../services/payment');
+const auth = require('../middleware/auth');
 
 // Subscription Plan Limits
 const planLimits = {
@@ -57,7 +58,7 @@ router.get('/tiers', async (req, res) => {
 });
 
 // Create payment intent for subscription
-router.post('/create-payment-intent/:tier', async (req, res) => {
+router.post('/create-payment-intent/:tier', auth, async (req, res) => {
     try {
         const { tier } = req.params;
         const { method = 'card', email } = req.body; // Support passing method and email in body
@@ -105,7 +106,7 @@ router.post('/create-payment-intent/:tier', async (req, res) => {
 });
 
 // Get user subscription status
-router.get('/status', async (req, res) => {
+router.get('/status', auth, async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({
@@ -156,7 +157,7 @@ router.get('/status', async (req, res) => {
 });
 
 // Cancel subscription (Stops renewal, but keeps service active until endDate)
-router.post('/cancel', async (req, res) => {
+router.post('/cancel', auth, async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({
@@ -185,7 +186,7 @@ router.post('/cancel', async (req, res) => {
 });
 
 // Upgrade subscription
-router.post('/upgrade/:tier', async (req, res) => {
+router.post('/upgrade/:tier', auth, async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({

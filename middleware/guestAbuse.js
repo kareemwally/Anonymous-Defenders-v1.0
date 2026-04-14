@@ -16,8 +16,22 @@ const guestAbusePrevention = async (req, res, next) => {
                        req.socket.remoteAddress;
         
         // If x-forwarded-for contains a list, take the first one
-        if (clientIP && clientIP.includes(',')) {
+        if (clientIP && typeof clientIP === 'string' && clientIP.includes(',')) {
             clientIP = clientIP.split(',')[0].trim();
+        }
+        
+        // Strip port number if present (e.g., ::ffff:192.168.1.1:12345 or 169.254.169.126:36706)
+        if (typeof clientIP === 'string') {
+            const parts = clientIP.split(':');
+            if (parts.length === 2) {
+                clientIP = parts[0];
+            } else if (parts.length > 2 && clientIP.includes('.')) {
+                const lastPartIndex = clientIP.lastIndexOf(':');
+                const possiblePort = clientIP.substring(lastPartIndex + 1);
+                if (!isNaN(possiblePort)) {
+                    clientIP = clientIP.substring(0, lastPartIndex);
+                }
+            }
         }
         
         // Check if this is a guest upload endpoint

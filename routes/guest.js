@@ -4,10 +4,35 @@ const User = require('../models/User');
 
 // Helper function to get client IP
 const getClientIP = (req) => {
-    return req.headers['x-forwarded-for'] || 
+    let ip = req.headers['x-forwarded-for'] || 
            req.headers['x-real-ip'] || 
            req.connection.remoteAddress || 
            req.socket.remoteAddress;
+           
+    // If it's a comma-separated list from x-forwarded-for, get the first one
+    if (typeof ip === 'string' && ip.includes(',')) {
+        ip = ip.split(',')[0].trim();
+    }
+    
+    // Strip port number if present (e.g., ::ffff:192.168.1.1:12345 or 169.254.169.126:36706)
+    if (typeof ip === 'string') {
+        // Handle IPv6 and IPv4
+        const parts = ip.split(':');
+        // If it's IPv4 with a port (contains only one colon)
+        if (parts.length === 2) {
+            ip = parts[0];
+        } 
+        // If it's IPv4 mapped IPv6 with a port (e.g., ::ffff:192.168.1.1:12345)
+        else if (parts.length > 2 && ip.includes('.')) {
+            const lastPartIndex = ip.lastIndexOf(':');
+            const possiblePort = ip.substring(lastPartIndex + 1);
+            if (!isNaN(possiblePort)) {
+                ip = ip.substring(0, lastPartIndex);
+            }
+        }
+    }
+    
+    return ip;
 };
 
 // Generate anonymous guest ID
@@ -79,6 +104,8 @@ router.get('/status', async (req, res) => {
 });
 
 // Update Upload Count (called after successful upload)
+// DEPRECATED: uploadController.js now handles the increment securely on the backend.
+// This endpoint now simply returns the current status.
 router.post('/upload-complete', async (req, res) => {
     try {
         const { guestId } = req.body;
@@ -97,28 +124,20 @@ router.post('/upload-complete', async (req, res) => {
             });
         }
         
-        // Update upload count and check limits
-        const newUploadCount = guestUser.uploadCount + 1;
-        const isOverLimit = newUploadCount > guestUser.uploadQuota;
-        
-        await User.findByIdAndUpdate(guestId, {
-            uploadCount: newUploadCount,
-            lastUploadDate: new Date(),
-            isBlocked: isOverLimit
-        });
+        const isOverLimit = guestUser.uploadCount > guestUser.uploadQuota;
         
         res.status(200).json({
-            message: 'Upload recorded',
-            uploadCount: newUploadCount,
+            message: 'Upload status retrieved',
+            uploadCount: guestUser.uploadCount,
             uploadQuota: guestUser.uploadQuota,
-            remainingUploads: guestUser.uploadQuota - newUploadCount,
-            isBlocked: isOverLimit
+            remainingUploads: Math.max(0, guestUser.uploadQuota - guestUser.uploadCount),
+            isBlocked: guestUser.isBlocked || isOverLimit
         });
         
     } catch (error) {
         console.error('Upload complete error:', error);
         res.status(500).json({ 
-            error: 'Failed to record upload' 
+            error: 'Failed to retrieve upload status' 
         });
     }
 });

@@ -249,7 +249,7 @@ class PaymobService {
                 // Payment successful
                 const orderId = order ? order.id : null;
                 if (orderId) {
-                    await this.updatePaymentStatus(orderId, 'completed');
+                    // Activate first to avoid race condition with replay protection
                     await this.activateSubscription(orderId);
                 }
             } else if (!success) {
@@ -328,6 +328,9 @@ class PaymobService {
                 // Reset usage on new/renewed subscription
                 uploadCount: 0
             });
+            
+            // Mark payment as completed here AFTER activating to avoid replay attacks correctly
+            await this.updatePaymentStatus(orderId, 'completed');
             
             console.log(`Successfully activated subscription ${payment.tier} for user ${user.email}`);
         } catch (error) {
