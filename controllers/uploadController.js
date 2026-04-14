@@ -34,6 +34,20 @@ exports.uploadFile = async (req, res) => {
       userDoc = req.guestUser;
     }
 
+    console.log(`[Upload] User resolved. ID: ${userId}, isGuest: ${userDoc?.isGuest}`);
+
+    // Check Quota for registered users (Guests are already checked in guestAbusePrevention)
+    if (userDoc && !userDoc.isGuest) {
+        const uploadQuota = userDoc.uploadQuota || 3;
+        if (userDoc.uploadCount >= uploadQuota) {
+            console.log(`[Upload] Quota exceeded for user ${userId}. Count: ${userDoc.uploadCount}, Quota: ${uploadQuota}`);
+            return res.status(429).json({ 
+                error: 'Upload limit exceeded', 
+                message: 'You have reached your daily upload limit. Please wait until tomorrow or upgrade your subscription.' 
+            });
+        }
+    }
+
 
       const filesToCleanup = [];
     try {
@@ -140,11 +154,17 @@ exports.uploadFile = async (req, res) => {
             // Update upload count based on NEW samples only (prevents double charging for existing files)
       const newSamplesCount = results.filter(r => r.dbStatus !== 'already_uploaded_by_user').length;
       
+      console.log(`[Upload] newSamplesCount: ${newSamplesCount}`);
+      
       if (userDoc && newSamplesCount > 0) {
-        await User.findByIdAndUpdate(userDoc._id, { 
+        console.log(`[Upload] Updating uploadCount for user ${userDoc._id}. Current count: ${userDoc.uploadCount}`);
+        const updatedUser = await User.findByIdAndUpdate(userDoc._id, { 
           $inc: { uploadCount: newSamplesCount },
           lastUploadDate: new Date()
-        });
+        }, { new: true });
+        console.log(`[Upload] Updated uploadCount: ${updatedUser.uploadCount}`);
+      } else {
+        console.log(`[Upload] Not updating uploadCount. userDoc exists: ${!!userDoc}, newSamplesCount: ${newSamplesCount}`);
       }
 
 
