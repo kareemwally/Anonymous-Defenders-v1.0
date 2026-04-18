@@ -1,0 +1,845 @@
+{
+  "v": 4,
+  "name": "Anonymous Defenders API",
+  "folders": [
+    {
+      "v": 1,
+      "name": "1 - Auth",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Signup",
+          "method": "POST",
+          "endpoint": "<<base_url>>/auth/signup",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"+201001234567\",\n  \"jobTitle\": \"Security Analyst\",\n  \"yearsOfExperience\": 5,\n  \"password\": \"SecurePass123!\",\n  \"company\": \"Acme Corp\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Login",
+          "method": "POST",
+          "endpoint": "<<base_url>>/auth/login",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Get Profile",
+          "method": "GET",
+          "endpoint": "<<base_url>>/auth/profile",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Google OAuth (browser only)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/auth/google",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "GitHub OAuth (browser only)",
+          "method": "GET",
+          "endpoint": "<<base_url>>/auth/github",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "2 - File Upload & Analysis",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Upload File (Guest / No Auth)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/upload",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "multipart/form-data",
+            "body": [
+              { "key": "file", "value": "", "active": true, "isFile": true },
+              { "key": "password", "value": "", "active": false, "isFile": false }
+            ]
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Upload File (Registered User)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/upload",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "multipart/form-data",
+            "body": [
+              { "key": "file", "value": "", "active": true, "isFile": true },
+              { "key": "password", "value": "", "active": false, "isFile": false }
+            ]
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Upload Password-Protected Archive",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/upload",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "multipart/form-data",
+            "body": [
+              { "key": "file", "value": "", "active": true, "isFile": true },
+              { "key": "password", "value": "archive_password_here", "active": true, "isFile": false }
+            ]
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Get Plot Image",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/plots/<<plot_filename>>",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "3 - Guest Users",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Get Guest Status",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/guest/status",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Can Guest Upload?",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/guest/can-upload",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Upload Complete (Deprecated)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/guest/upload-complete",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"guestId\": \"<<guest_id>>\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "4 - Subscriptions",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Get All Tiers",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/subscriptions/tiers",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Get Subscription Status",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/subscriptions/status",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create Payment Intent — Tier A",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/create-payment-intent/A",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"method\": \"card\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create Payment Intent — Tier B",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/create-payment-intent/B",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"method\": \"card\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create Payment Intent — Tier C",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/create-payment-intent/C",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"method\": \"card\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create Payment Intent — Tier D",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/create-payment-intent/D",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"method\": \"card\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create Payment Intent — Wallet",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/create-payment-intent/A",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"method\": \"wallet\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Cancel Subscription",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/cancel",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Upgrade Subscription — to Tier B",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/upgrade/B",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Paymob Webhook (do not call manually)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/subscriptions/webhook?hmac=<<paymob_hmac>>",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"type\": \"TRANSACTION\",\n  \"obj\": {}\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "5 - API Keys",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "List API Keys",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/keys",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Create API Key",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/keys",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"My CI Key\",\n  \"permissions\": [\"upload\", \"analyze\", \"read\"]\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Update API Key",
+          "method": "PUT",
+          "endpoint": "<<base_url>>/api/keys/<<api_key_id>>",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Renamed Key\",\n  \"permissions\": [\"read\"],\n  \"status\": \"inactive\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Delete API Key",
+          "method": "DELETE",
+          "endpoint": "<<base_url>>/api/keys/<<api_key_id>>",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Get API Key Stats",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/keys/<<api_key_id>>/stats",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "6 - API v1 (API Key Auth)",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "API Status",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/status",
+          "headers": [
+            { "key": "X-API-Key", "value": "<<api_key>>", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "API Usage — Daily",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/usage",
+          "headers": [
+            { "key": "X-API-Key", "value": "<<api_key>>", "active": true }
+          ],
+          "params": [
+            { "key": "period", "value": "daily", "active": true }
+          ],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "API Usage — Monthly",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/v1/usage",
+          "headers": [
+            { "key": "X-API-Key", "value": "<<api_key>>", "active": true }
+          ],
+          "params": [
+            { "key": "period", "value": "monthly", "active": true }
+          ],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Upload File via API Key",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/v1/upload",
+          "headers": [
+            { "key": "X-API-Key", "value": "<<api_key>>", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "multipart/form-data",
+            "body": [
+              { "key": "file", "value": "", "active": true, "isFile": true },
+              { "key": "password", "value": "", "active": false, "isFile": false }
+            ]
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "7 - Teams",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Create Team",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/teams/create",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Security Team Alpha\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Get Team Details",
+          "method": "GET",
+          "endpoint": "<<base_url>>/api/teams",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Invite Member",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/teams/invite",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"alice@example.com\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Join Team via Token",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/teams/join/<<invite_token>>",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Remove Member",
+          "method": "DELETE",
+          "endpoint": "<<base_url>>/api/teams/members/<<member_user_id>>",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Leave Team",
+          "method": "POST",
+          "endpoint": "<<base_url>>/api/teams/leave",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Revoke Invite",
+          "method": "DELETE",
+          "endpoint": "<<base_url>>/api/teams/invite",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"bob@example.com\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Disband Team",
+          "method": "DELETE",
+          "endpoint": "<<base_url>>/api/teams",
+          "headers": [],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "8 - Complaints",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Submit Complaint (Guest)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/complaints",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"email\": \"reporter@example.com\",\n  \"message\": \"I found a bug in the upload feature.\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Submit Complaint (Authenticated)",
+          "method": "POST",
+          "endpoint": "<<base_url>>/complaints",
+          "headers": [
+            { "key": "Content-Type", "value": "application/json", "active": true }
+          ],
+          "params": [],
+          "auth": {
+            "authType": "bearer",
+            "authActive": true,
+            "token": "<<jwt_token>>"
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"message\": \"I found a bug in the upload feature.\"\n}"
+          },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    },
+    {
+      "v": 1,
+      "name": "9 - Health",
+      "folders": [],
+      "requests": [
+        {
+          "v": "2",
+          "name": "Health Check",
+          "method": "GET",
+          "endpoint": "<<base_url>>/health",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        },
+        {
+          "v": "2",
+          "name": "Detailed Health Check",
+          "method": "GET",
+          "endpoint": "<<base_url>>/health/detailed",
+          "headers": [],
+          "params": [],
+          "auth": { "authType": "none", "authActive": false },
+          "body": { "contentType": null, "body": null },
+          "preRequestScript": "",
+          "testScript": "",
+          "requestVariables": []
+        }
+      ]
+    }
+  ],
+  "requests": []
+}

@@ -86,6 +86,7 @@ app.use('/complaints', require('./routes/complaints'));
 app.use('/api/guest', require('./routes/guest'));
 app.use('/api/subscriptions', require('./routes/subscription'));
 app.use('/api/keys', require('./routes/apiKeys'));
+app.use('/api/teams', require('./routes/team'));
 app.use('/api/v1', require('./routes/apiUpload'));
 app.use('/health', require('./routes/health'));
 

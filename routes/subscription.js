@@ -33,13 +33,13 @@ router.get('/tiers', async (req, res) => {
                 name: 'Tier C',
                 uploads: 50,
                 price: 1200,
-                description: 'Premium plan for power users'
+                description: 'Team plan — up to 5 members, each with 50 uploads/month'
             },
             'D': {
                 name: 'Tier D',
                 uploads: 100,
                 price: 2400,
-                description: 'Enterprise plan for teams'
+                description: 'Enterprise team plan — up to 10 members, each with 100 uploads/month'
             }
         };
 

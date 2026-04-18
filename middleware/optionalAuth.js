@@ -32,9 +32,24 @@ const optionalAuth = async (req, res, next) => {
           user.subscriptionTier = 'free';
           user.uploadQuota = 3;
           await User.updateOne(
-            { _id: user._id }, 
+            { _id: user._id },
             { $set: { isActiveSubscription: false, subscriptionTier: 'free', uploadQuota: 3 } }
           );
+
+          // If owner: expire all active team members too
+          if (user.teamRole === 'owner' && user.teamId) {
+            const Team = require('../models/Team');
+            const team = await Team.findById(user.teamId);
+            if (team) {
+              const activeMembers = team.members.filter(m => m.status === 'active' && m.userId);
+              await Promise.all(activeMembers.map(m =>
+                User.updateOne(
+                  { _id: m.userId },
+                  { $set: { isActiveSubscription: false, subscriptionTier: null, uploadQuota: 3, uploadCount: 0 } }
+                )
+              ));
+            }
+          }
         }
         req.user = user;
       }

@@ -26,7 +26,11 @@ const userSchema = new mongoose.Schema({
   uploadQuota: { type: Number, default: 3 },
   subscriptionStartDate: { type: Date, sparse: true },
   subscriptionEndDate: { type: Date, sparse: true },
-  isActiveSubscription: { type: Boolean, default: false }
+  isActiveSubscription: { type: Boolean, default: false },
+
+  // Team Fields
+  teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+  teamRole: { type: String, enum: ['owner', 'member'], default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
