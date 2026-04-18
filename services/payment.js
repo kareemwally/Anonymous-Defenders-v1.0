@@ -125,12 +125,12 @@ class PaymobService {
                 { headers: { 'Content-Type': 'application/json' } }
             );
 
-            // Save payment intent to database
+            // Save payment intent to database (orderId stored as string — Paymob returns integers)
             await this.savePaymentIntent({
                 userId,
                 tier,
                 amount,
-                orderId: orderId,
+                orderId: String(orderId),
                 status: 'pending'
             });
 
@@ -247,14 +247,13 @@ class PaymobService {
             
             if (success && !pending) {
                 // Payment successful
-                const orderId = order ? order.id : null;
+                const orderId = order ? String(order.id) : null;
                 if (orderId) {
-                    // Activate first to avoid race condition with replay protection
                     await this.activateSubscription(orderId);
                 }
             } else if (!success) {
                 // Payment failed
-                const orderId = order ? order.id : null;
+                const orderId = order ? String(order.id) : null;
                 if (orderId) {
                     await this.updatePaymentStatus(orderId, 'failed');
                 }
@@ -298,11 +297,12 @@ class PaymobService {
     async activateSubscription(orderId) {
         const Payment = require('../models/Payment');
         const User = require('../models/User');
+        const Team = require('../models/Team');
         try {
             const payment = await Payment.findOne({ orderId: orderId });
             if (!payment) return;
-            
-            // Replay Attack Protection: Check if payment was already successfully processed
+
+            // Replay attack protection
             if (payment.status === 'completed') {
                 console.log(`Payment for order ${orderId} is already completed. Skipping.`);
                 return;
@@ -312,29 +312,46 @@ class PaymobService {
             if (!user) return;
 
             const tierDetails = this.getTierDetails(payment.tier);
-            
-            // Set subscription dates
+
             const startDate = new Date();
             const endDate = new Date();
-            endDate.setMonth(endDate.getMonth() + 1); // 1 month duration
+            endDate.setMonth(endDate.getMonth() + 1);
 
-            // Update user document using the flat fields defined in User.js schema
             await User.findByIdAndUpdate(user._id, {
                 subscriptionTier: payment.tier,
                 isActiveSubscription: true,
                 subscriptionStartDate: startDate,
                 subscriptionEndDate: endDate,
                 uploadQuota: tierDetails.uploads,
-                // Reset usage on new/renewed subscription
                 uploadCount: 0
             });
-            
-            // Mark payment as completed here AFTER activating to avoid replay attacks correctly
+
+            // If owner has a team, sync the new endDate to the team and all active members
+            if (user.teamRole === 'owner' && user.teamId) {
+                const team = await Team.findByIdAndUpdate(
+                    user.teamId,
+                    { subscriptionEndDate: endDate, plan: payment.tier },
+                    { new: true }
+                );
+                if (team) {
+                    const activeMembers = team.members.filter(m => m.status === 'active' && m.userId);
+                    await Promise.all(activeMembers.map(m =>
+                        User.findByIdAndUpdate(m.userId, {
+                            subscriptionEndDate: endDate,
+                            subscriptionTier: payment.tier,
+                            uploadQuota: tierDetails.uploads
+                        })
+                    ));
+                }
+            }
+
             await this.updatePaymentStatus(orderId, 'completed');
-            
+
             console.log(`Successfully activated subscription ${payment.tier} for user ${user.email}`);
         } catch (error) {
             console.error(`Error activating subscription for order: ${orderId}`, error);
         }
     }
 }
+
+module.exports = PaymobService;
