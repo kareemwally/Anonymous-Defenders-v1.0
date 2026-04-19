@@ -11,24 +11,35 @@ class PaymobService {
         this.cardIntegrationId = process.env.PAYMOB_CARD_INTEGRATION_ID;
         this.hmacSecret = process.env.PAYMOB_HMAC_SECRET;
         this.iframeId = process.env.PAYMOB_IFRAME_ID;
-        
+
         // Paymob API URLs
         this.baseURL = 'https://accept.paymob.com/api';
         this.authURL = 'https://accept.paymob.com/api/auth/tokens';
         this.orderURL = 'https://accept.paymob.com/api/ecommerce/orders';
         this.paymentKeyURL = 'https://accept.paymob.com/api/acceptance/payment_keys';
+
+        // Validate required config on startup so errors are obvious
+        const missing = ['PAYMOB_API_KEY', 'PAYMOB_CARD_INTEGRATION_ID', 'PAYMOB_WALLET_INTEGRATION_ID',
+                         'PAYMOB_HMAC_SECRET', 'PAYMOB_IFRAME_ID']
+            .filter(k => !process.env[k]);
+        if (missing.length) {
+            console.error('[Paymob] Missing env vars:', missing.join(', '));
+        }
     }
 
     // 1. Get authentication token
     async getAuthToken() {
+        if (!this.apiKey) {
+            throw new Error('PAYMOB_API_KEY is not set in environment variables');
+        }
         try {
-            const response = await axios.post(this.authURL, {
-                api_key: this.apiKey
-            });
+            const response = await axios.post(this.authURL, { api_key: this.apiKey });
             return response.data.token;
         } catch (error) {
-            console.error('Paymob auth error:', error?.response?.data || error.message);
-            throw new Error('Failed to authenticate with Paymob');
+            const detail = error?.response?.data;
+            console.error('[Paymob] Auth error:', detail || error.message);
+            const msg = detail?.message || detail?.detail || JSON.stringify(detail) || error.message;
+            throw new Error(`Paymob authentication failed: ${msg}`);
         }
     }
 
@@ -78,12 +89,17 @@ class PaymobService {
                 }]
             };
 
-            const orderResponse = await axios.post(
-                `${this.baseURL}/ecommerce/orders`,
-                orderData,
-                { headers: { 'Content-Type': 'application/json' } }
-            );
-            
+            let orderResponse;
+            try {
+                orderResponse = await axios.post(
+                    `${this.baseURL}/ecommerce/orders`,
+                    orderData,
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+            } catch (err) {
+                const d = err?.response?.data;
+                throw new Error(`Paymob order registration failed: ${d?.message || d?.detail || JSON.stringify(d) || err.message}`);
+            }
             const orderId = orderResponse.data.id;
 
             // Select Integration ID based on method
@@ -119,11 +135,17 @@ class PaymobService {
                 integration_id: integrationId
             };
 
-            const paymentKeyResponse = await axios.post(
-                `${this.baseURL}/acceptance/payment_keys`,
-                paymentKeyData,
-                { headers: { 'Content-Type': 'application/json' } }
-            );
+            let paymentKeyResponse;
+            try {
+                paymentKeyResponse = await axios.post(
+                    `${this.baseURL}/acceptance/payment_keys`,
+                    paymentKeyData,
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+            } catch (err) {
+                const d = err?.response?.data;
+                throw new Error(`Paymob payment key failed: ${d?.message || d?.detail || JSON.stringify(d) || err.message}`);
+            }
 
             // Save payment intent to database (orderId stored as string — Paymob returns integers)
             await this.savePaymentIntent({
@@ -143,11 +165,10 @@ class PaymobService {
             };
 
         } catch (error) {
-            console.error('Create payment intent error:', error?.response?.data || error.message);
-            return {
-                success: false,
-                error: 'Failed to initialize payment gateway'
-            };
+            const detail = error?.response?.data;
+            const msg = detail?.message || detail?.detail || JSON.stringify(detail) || error.message;
+            console.error('[Paymob] createPaymentIntent error:', msg);
+            return { success: false, error: msg };
         }
     }
 
