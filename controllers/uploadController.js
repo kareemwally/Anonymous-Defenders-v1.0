@@ -209,9 +209,34 @@ exports.uploadFile = async (req, res) => {
     const newSamplesCount = results.filter(r => r.dbStatus !== 'already_uploaded_by_user').length;
     console.log(`[Upload] newSamplesCount: ${newSamplesCount}`);
 
+    // Post-extraction quota enforcement.
+    // We can only know how many files an archive contains after the Python script
+    // runs, so we validate here — before touching the DB — to prevent quota abuse
+    // via archives stuffed with many files.
+    if (userDoc && newSamplesCount > 0) {
+      let remainingQuota;
+
+      if (userDoc.isGuest) {
+        // req.remainingUploads is set by guestAbuse middleware; fall back to computing it
+        const dailyLimit = userDoc.dailyUploadLimit ?? 3;
+        remainingQuota = req.remainingUploads ?? Math.max(0, dailyLimit - (userDoc.uploadCount || 0));
+      } else {
+        remainingQuota = Math.max(0, (userDoc.uploadQuota || 3) - (userDoc.uploadCount || 0));
+      }
+
+      if (newSamplesCount > remainingQuota) {
+        return res.status(429).json({
+          error: 'Upload limit exceeded',
+          message: `This upload contains ${newSamplesCount} file(s) but you only have ${remainingQuota} upload(s) remaining. Every file inside an archive counts as one upload.`,
+          remainingUploads: remainingQuota,
+          samplesInUpload: newSamplesCount
+        });
+      }
+    }
+
     if (userDoc && newSamplesCount > 0) {
       console.log(`[Upload] Updating uploadCount for user ${userDoc._id}. Current count: ${userDoc.uploadCount}`);
-      await User.findByIdAndUpdate(userDoc._id, { 
+      await User.findByIdAndUpdate(userDoc._id, {
         $inc: { uploadCount: newSamplesCount },
         lastUploadDate: new Date()
       });
