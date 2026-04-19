@@ -51,7 +51,9 @@ async function generateFileHash(samplePath) {
 }
 
 /**
- * Interacts with AI Model and creates a DB report.
+ * Interacts with AI Model and optionally creates a DB report.
+ * newFileDoc may be null when called for files that failed hashing —
+ * in that case the AI result is returned but not persisted.
  */
 async function processAIModel(samplePath, newFileDoc) {
   if (!isFileSizeSuitable(samplePath)) {
@@ -62,20 +64,24 @@ async function processAIModel(samplePath, newFileDoc) {
   try {
     const aiResult = await sendToAIModel(samplePath);
     console.log(`[Upload] AI Result received:`, !!aiResult);
-    
+
     if (!aiResult.predictions_file) {
       throw new Error('AI model did not return predictions_file');
     }
-    
-    const dbReport = await AnalysisReport.create({
-      fileId: newFileDoc._id,
-      analysisDate: new Date(),
-      predictions_file: aiResult.predictions_file,
-      probability_file: aiResult.probability_file ?? null,
-      predictions_family: aiResult.predictions_family ?? [],
-      probability_family: aiResult.probability_family ?? []
-    });
-    
+
+    // Only persist the report when we have a DB file record to link to
+    let dbReport = null;
+    if (newFileDoc) {
+      dbReport = await AnalysisReport.create({
+        fileId: newFileDoc._id,
+        analysisDate: new Date(),
+        predictions_file: aiResult.predictions_file,
+        probability_file: aiResult.probability_file ?? null,
+        predictions_family: aiResult.predictions_family ?? [],
+        probability_family: aiResult.probability_family ?? []
+      });
+    }
+
     return { dbStatus: 'ai_analyzed', aiResult, dbReport };
   } catch (aiError) {
     console.error(`AI Model Error for ${samplePath}:`, aiError);
@@ -85,12 +91,14 @@ async function processAIModel(samplePath, newFileDoc) {
 
 /**
  * Handles individual sample logic (hashing, DB check, AI).
+ * Returns savedToDb: true only when File.create ran — used for accurate quota counting.
  */
 async function processSampleData(sample, userId, filePath) {
   const sampleFile = sample.filename;
   const samplePath = sample.file_path;
   const plotLinks = (sample.plots || []).map(p => `${PLOTS_BASE_URL}/api/plots/${path.basename(p)}`);
 
+  // Static analysis itself errored — no path, no hash, no AI
   if (sample.analysis && sample.analysis.error) {
     return {
       filename: sampleFile,
@@ -98,12 +106,14 @@ async function processSampleData(sample, userId, filePath) {
       plots: plotLinks,
       hash: null,
       dbStatus: 'analysis_error',
+      savedToDb: false,
       dbReport: null,
       aiResult: null,
       error: sample.analysis.error
     };
   }
 
+  // No file path returned by the Python script — cannot hash or send to AI
   if (!samplePath) {
     return {
       filename: sampleFile,
@@ -111,24 +121,32 @@ async function processSampleData(sample, userId, filePath) {
       plots: plotLinks,
       hash: null,
       dbStatus: 'not_available',
+      savedToDb: false,
       dbReport: null,
       aiResult: null
     };
   }
 
   const hashResult = await generateFileHash(samplePath);
+
+  // Hash failed — still send to AI server so the user gets a result,
+  // but we cannot store in DB without a reliable hash key
   if (!hashResult || !hashResult.md5) {
+    console.warn(`[Upload] Hash failed for ${samplePath}, sending directly to AI server.`);
+    const { dbStatus, aiResult, dbReport } = await processAIModel(samplePath, null);
     return {
       filename: sampleFile,
       analysis: sample.analysis,
       plots: plotLinks,
-      hash: hashResult,
-      dbStatus: 'hash_failed',
-      dbReport: null,
-      aiResult: null
+      hash: null,
+      dbStatus: dbStatus === 'ai_analyzed' ? 'ai_analyzed_no_hash' : dbStatus,
+      savedToDb: false,
+      dbReport,
+      aiResult
     };
   }
 
+  // Already in this user's history — return cached report
   const existingFile = await File.findOne({ hash: hashResult.md5, userId: userId });
   if (existingFile) {
     const dbReport = await AnalysisReport.findOne({ fileId: existingFile._id });
@@ -138,12 +156,13 @@ async function processSampleData(sample, userId, filePath) {
       plots: plotLinks,
       hash: hashResult,
       dbStatus: 'already_uploaded_by_user',
+      savedToDb: false,
       dbReport,
       aiResult: null
     };
   }
 
-  // New file logic
+  // New file — store in DB then send to AI server
   const newFileDoc = await File.create({
     name: sampleFile,
     hash: hashResult.md5,
@@ -160,6 +179,7 @@ async function processSampleData(sample, userId, filePath) {
     plots: plotLinks,
     hash: hashResult,
     dbStatus,
+    savedToDb: true,
     dbReport,
     aiResult
   };
@@ -206,8 +226,9 @@ exports.uploadFile = async (req, res) => {
       results.push(processedSample);
     }
 
-    const newSamplesCount = results.filter(r => r.dbStatus !== 'already_uploaded_by_user').length;
-    console.log(`[Upload] newSamplesCount: ${newSamplesCount}`);
+    // Only count files actually stored in DB — not failures or duplicates
+    const newSamplesCount = results.filter(r => r.savedToDb).length;
+    console.log(`[Upload] newSamplesCount (stored in DB): ${newSamplesCount}`);
 
     // Post-extraction quota enforcement.
     // We can only know how many files an archive contains after the Python script
