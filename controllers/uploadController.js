@@ -109,6 +109,10 @@ async function processSampleData(sample, userId, filePath) {
   const samplePath = sample.file_path;
   const plotLinks = (sample.plots || []).map(p => `${PLOTS_BASE_URL}/api/plots/${path.basename(p)}`);
 
+  console.log(`[processSample] ---- ${sampleFile} ----`);
+  console.log(`[processSample] file_path: ${samplePath}`);
+  console.log(`[processSample] analysis.error: ${sample.analysis?.error ?? 'none'}`);
+
   // No file path returned by the Python script — nothing we can do
   if (!samplePath) {
     return {
@@ -124,11 +128,12 @@ async function processSampleData(sample, userId, filePath) {
   }
 
   const hashResult = await generateFileHash(samplePath);
+  console.log(`[processSample] hashResult for ${sampleFile}:`, JSON.stringify(hashResult));
 
   // Hash failed — still send to AI so the user gets a result,
   // but we cannot store in DB without a reliable key
   if (!hashResult || !hashResult.md5) {
-    console.warn(`[Upload] Hash failed for ${samplePath}, sending directly to AI server.`);
+    console.warn(`[processSample] Hash failed for ${sampleFile} (path: ${samplePath})`);
     const { dbStatus, aiResult, dbReport } = await processAIModel(samplePath, null);
     return {
       filename: sampleFile,
@@ -144,6 +149,7 @@ async function processSampleData(sample, userId, filePath) {
 
   // Already in this user's history — return cached report
   const existingFile = await File.findOne({ hash: hashResult.md5, userId: userId });
+  console.log(`[processSample] existingFile for ${sampleFile}: ${existingFile ? existingFile._id : 'not found'}`);
   if (existingFile) {
     const dbReport = await AnalysisReport.findOne({ fileId: existingFile._id });
     return {
@@ -161,6 +167,7 @@ async function processSampleData(sample, userId, filePath) {
   // New file — store in DB regardless of whether Python analysis errored.
   // (e.g. "file size isn't suitable" from the Python script still deserves a DB record
   //  so quota is accurate and the file appears in the user's history.)
+  console.log(`[processSample] Calling File.create for ${sampleFile} (hash: ${hashResult.md5})`);
   const newFileDoc = await File.create({
     name: sampleFile,
     hash: hashResult.md5,
@@ -231,6 +238,11 @@ exports.uploadFile = async (req, res) => {
     if (analysisResult?.error?.trim() === 'password is wrong') {
       return res.status(400).json({ error: 'password is wrong ' });
     }
+
+    console.log(`[Upload] Python returned ${analysisResult.results?.length ?? 0} result(s)`);
+    analysisResult.results?.forEach((s, i) =>
+      console.log(`[Upload] result[${i}]: filename=${s.filename}, file_path=${s.file_path}, analysis_error=${s.analysis?.error ?? 'none'}`)
+    );
 
     const results = [];
     for (const sample of analysisResult.results || []) {
