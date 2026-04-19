@@ -92,11 +92,11 @@
         },
         {
           "name": "PAYMOB_API_KEY",
-          "value": "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmpiR0Z6Y3lJNklrMWxjbU5vWVc1MElpd2ljSEp2Wm1sc1pWOXdheUk2TVRFek9Ea3pOaXdpYm1GdFpTSTZJbWx1YVhScFlXd2lmUS5MSG9YdWpmWC1GMmZnSVpmU05LQktoOUZUV3VKa3JGRVl5REw3YlN2TDgybnFjXzQxcjZGVDd15Wm9tbF8zbUk3c3d3MVBvei1JeE1pX1VjSnNMN2dEZw=="
+          "value": "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmpiR0Z6Y3lJNklrMWxjbU5vWVc1MElpd2ljSEp2Wm1sc1pWOXdheUk2TVRFek9Ea3pOaXdpYm1GdFpTSTZJakUzTnpZMk16QTRORE11TkRJMk9EQXlJbjAueU1jVmg1YmVrU0tZMjMtaC1ObzhTWGgybDFzT2p2SnRkcWd2eEcwT21DRzZOX2FCR2tUR2EyS3NZMVRIbWhPbFZjVlFyQm4xbHhQdkFPX2ZYdVVKZUE="
         },
         {
           "name": "PAYMOB_INTEGRATION_ID",
-          "value": "5572353"
+          "value": "5573844"
         },
         {
           "name": "PAYMOB_WALLET_INTEGRATION_ID",
@@ -104,7 +104,7 @@
         },
         {
           "name": "PAYMOB_CARD_INTEGRATION_ID",
-          "value": "5572353"
+          "value": "5573844"
         },
         {
           "name": "PAYMOB_HMAC_SECRET",
