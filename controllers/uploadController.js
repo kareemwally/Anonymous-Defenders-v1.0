@@ -11,13 +11,11 @@ const ANALYZER_SCRIPT_PATH = path.join('py-scripts', 'static_malware_analyzer.py
 const HASH_SCRIPT_PATH = path.join('py-scripts', 'get-hashes.py');
 const PLOTS_BASE_URL = process.env.PLOTS_BASE_URL || process.env.OAUTH_CALLBACK_BASE?.replace(/\/$/, '') || '';
 
-/**
- * Resolves user identity from request.
- */
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
 function resolveUserIdentity(req) {
   let userId = 0;
   let userDoc = null;
-
   if (req.user) {
     userId = req.user._id;
     userDoc = req.user;
@@ -25,51 +23,44 @@ function resolveUserIdentity(req) {
     userId = req.guestUser._id;
     userDoc = req.guestUser;
   }
-  
   return { userId, userDoc, isApiKeyRequest: !!req.apiKey };
 }
 
-/**
- * Checks upload quota for registered users.
- */
-function isQuotaExceeded(userDoc, isApiKeyRequest) {
-  if (!userDoc || userDoc.isGuest) return false;
-  const uploadQuota = userDoc.uploadQuota || 3;
-  return userDoc.uploadCount >= uploadQuota;
+/** Returns remaining upload slots for any user type. */
+function remainingQuota(userDoc, req) {
+  if (!userDoc) return Infinity;
+  if (userDoc.isGuest) {
+    const limit = userDoc.dailyUploadLimit ?? 3;
+    // req.remainingUploads is pre-computed by guestAbuse middleware
+    return req.remainingUploads ?? Math.max(0, limit - (userDoc.uploadCount || 0));
+  }
+  return Math.max(0, (userDoc.uploadQuota || 3) - (userDoc.uploadCount || 0));
 }
 
-/**
- * Runs Python hash script on the given file path.
- */
+/** Fast pre-upload check: is the user already at their limit? */
+function isQuotaExceeded(userDoc) {
+  if (!userDoc) return false;
+  if (userDoc.isGuest) return (userDoc.uploadCount || 0) >= (userDoc.dailyUploadLimit ?? 3);
+  return (userDoc.uploadCount || 0) >= (userDoc.uploadQuota || 3);
+}
+
 async function generateFileHash(samplePath) {
   try {
     return await runPythonScript(HASH_SCRIPT_PATH, [samplePath]);
   } catch (err) {
-    console.error(`Error during hash generation for ${samplePath}:`, err);
+    console.error(`[Hash] Failed for ${samplePath}:`, err.message);
     return null;
   }
 }
 
-/**
- * Interacts with AI Model and optionally creates a DB report.
- * newFileDoc may be null when called for files that failed hashing —
- * in that case the AI result is returned but not persisted.
- */
 async function processAIModel(samplePath, newFileDoc) {
   if (!isFileSizeSuitable(samplePath)) {
     return { dbStatus: 'size_unsuitable', aiResult: null, dbReport: null };
   }
-
-  console.log(`[Upload] File size suitable for AI: ${samplePath}`);
   try {
     const aiResult = await sendToAIModel(samplePath);
-    console.log(`[Upload] AI Result received:`, !!aiResult);
+    if (!aiResult.predictions_file) throw new Error('AI model did not return predictions_file');
 
-    if (!aiResult.predictions_file) {
-      throw new Error('AI model did not return predictions_file');
-    }
-
-    // Only persist the report when we have a DB file record to link to
     let dbReport = null;
     if (newFileDoc) {
       dbReport = await AnalysisReport.create({
@@ -81,64 +72,63 @@ async function processAIModel(samplePath, newFileDoc) {
         probability_family: aiResult.probability_family ?? []
       });
     }
-
     return { dbStatus: 'ai_analyzed', aiResult, dbReport };
-  } catch (aiError) {
-    console.error(`AI Model Error for ${samplePath}:`, aiError);
+  } catch (err) {
+    console.error(`[AI] Error for ${samplePath}:`, err.message);
     return { dbStatus: 'ai_failed', aiResult: null, dbReport: null };
   }
 }
 
+// ─── Phase 1: pre-check (hash + DB lookup, NO storing) ────────────────────────
 /**
- * Handles individual sample logic (hashing, DB check, AI).
- * Returns savedToDb: true only when File.create ran — used for accurate quota counting.
- *
- * Order of operations (intentional):
- *   1. Bail early only when we have NO file path at all.
- *   2. Hash the file.
- *   3. Check DB for duplicates.
- *   4. Store in DB (File.create) — even if Python analysis errored (e.g. size check).
- *   5. Skip AI if Python already flagged an error; otherwise send to AI.
- *
- * This keeps archive-file behaviour consistent with standalone-file behaviour:
- * a file that is too small/large is still stored in DB (so quota is consumed and
- * history is recorded) but the AI call is skipped.
+ * Hashes the file and checks the DB for duplicates.
+ * Does NOT write anything — used to count genuinely new files before the quota
+ * gate so we can reject an oversized archive before touching the database.
  */
-async function processSampleData(sample, userId, filePath) {
+async function preCheckSample(sample, userId) {
+  const samplePath = sample.file_path;
+
+  if (!samplePath) {
+    return { hashResult: null, existingFile: null, isNew: false };
+  }
+
+  const hashResult = await generateFileHash(samplePath);
+  if (!hashResult || !hashResult.md5) {
+    // Hash failed — not storable, but still routed to AI in phase 3
+    return { hashResult: null, existingFile: null, isNew: false };
+  }
+
+  const existingFile = await File.findOne({ hash: hashResult.md5, userId });
+  return {
+    hashResult,
+    existingFile: existingFile || null,
+    isNew: !existingFile           // true → this file will consume one quota slot
+  };
+}
+
+// ─── Phase 3: store + AI ──────────────────────────────────────────────────────
+/**
+ * Persists the file and fetches/creates the AI report.
+ * Receives the pre-computed hashResult and existingFile from phase 1 so we
+ * never hash or query the DB twice.
+ */
+async function processSampleData(sample, userId, { hashResult, existingFile }) {
   const sampleFile = sample.filename;
   const samplePath = sample.file_path;
   const plotLinks = (sample.plots || []).map(p => `${PLOTS_BASE_URL}/api/plots/${path.basename(p)}`);
 
-  console.log(`[processSample] ---- ${sampleFile} ----`);
-  console.log(`[processSample] file_path: ${samplePath}`);
-  console.log(`[processSample] analysis.error: ${sample.analysis?.error ?? 'none'}`);
+  const base = { filename: sampleFile, analysis: sample.analysis, plots: plotLinks };
 
-  // No file path returned by the Python script — nothing we can do
+  // No file path — nothing to hash or store
   if (!samplePath) {
-    return {
-      filename: sampleFile,
-      analysis: sample.analysis,
-      plots: plotLinks,
-      hash: null,
-      dbStatus: 'not_available',
-      savedToDb: false,
-      dbReport: null,
-      aiResult: null
-    };
+    return { ...base, hash: null, dbStatus: 'not_available', savedToDb: false, dbReport: null, aiResult: null };
   }
 
-  const hashResult = await generateFileHash(samplePath);
-  console.log(`[processSample] hashResult for ${sampleFile}:`, JSON.stringify(hashResult));
-
-  // Hash failed — still send to AI so the user gets a result,
-  // but we cannot store in DB without a reliable key
+  // Hash failed — return AI result only (cannot store without a key)
   if (!hashResult || !hashResult.md5) {
-    console.warn(`[processSample] Hash failed for ${sampleFile} (path: ${samplePath})`);
     const { dbStatus, aiResult, dbReport } = await processAIModel(samplePath, null);
     return {
-      filename: sampleFile,
-      analysis: sample.analysis,
-      plots: plotLinks,
+      ...base,
       hash: null,
       dbStatus: dbStatus === 'ai_analyzed' ? 'ai_analyzed_no_hash' : dbStatus,
       savedToDb: false,
@@ -148,41 +138,26 @@ async function processSampleData(sample, userId, filePath) {
   }
 
   // Already in this user's history — return cached report
-  const existingFile = await File.findOne({ hash: hashResult.md5, userId: userId });
-  console.log(`[processSample] existingFile for ${sampleFile}: ${existingFile ? existingFile._id : 'not found'}`);
   if (existingFile) {
     const dbReport = await AnalysisReport.findOne({ fileId: existingFile._id });
-    return {
-      filename: sampleFile,
-      analysis: sample.analysis,
-      plots: plotLinks,
-      hash: hashResult,
-      dbStatus: 'already_uploaded_by_user',
-      savedToDb: false,
-      dbReport,
-      aiResult: null
-    };
+    return { ...base, hash: hashResult, dbStatus: 'already_uploaded_by_user', savedToDb: false, dbReport, aiResult: null };
   }
 
-  // New file — store in DB regardless of whether Python analysis errored.
-  // (e.g. "file size isn't suitable" from the Python script still deserves a DB record
-  //  so quota is accurate and the file appears in the user's history.)
-  console.log(`[processSample] Calling File.create for ${sampleFile} (hash: ${hashResult.md5})`);
+  // New file — store in DB first (even if Python flagged a size/analysis error,
+  // so quota is consumed and the file appears in history)
   const newFileDoc = await File.create({
     name: sampleFile,
     hash: hashResult.md5,
     status: 'analyzed',
     uploadDate: new Date(),
-    userId: userId
+    userId
   });
 
-  // If the Python script already flagged an error, skip the AI call
+  // Skip AI if Python already flagged an error
   if (sample.analysis && sample.analysis.error) {
     const isSizeError = sample.analysis.error.includes('file size');
     return {
-      filename: sampleFile,
-      analysis: sample.analysis,
-      plots: plotLinks,
+      ...base,
       hash: hashResult,
       dbStatus: isSizeError ? 'size_unsuitable' : 'analysis_error',
       savedToDb: true,
@@ -192,38 +167,26 @@ async function processSampleData(sample, userId, filePath) {
     };
   }
 
-  // No prior error — send to AI server
+  // Send to AI server
   const { dbStatus, aiResult, dbReport } = await processAIModel(samplePath, newFileDoc);
-
-  return {
-    filename: sampleFile,
-    analysis: sample.analysis,
-    plots: plotLinks,
-    hash: hashResult,
-    dbStatus,
-    savedToDb: true,
-    dbReport,
-    aiResult
-  };
+  return { ...base, hash: hashResult, dbStatus, savedToDb: true, dbReport, aiResult };
 }
 
+// ─── main handler ─────────────────────────────────────────────────────────────
 exports.uploadFile = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
-  }
+  if (!req.file) return res.status(400).send('No file uploaded.');
 
   const filePath = req.file.path;
   const originalName = req.file.originalname;
   const password = req.body.password || '';
 
-  const { userId, userDoc, isApiKeyRequest } = resolveUserIdentity(req);
-  console.log(`[Upload] User resolved. ID: ${userId}, isGuest: ${userDoc?.isGuest}`);
+  const { userId, userDoc } = resolveUserIdentity(req);
 
-  if (isQuotaExceeded(userDoc, isApiKeyRequest)) {
-    console.log(`[Upload] Quota exceeded for user ${userId}.`);
-    return res.status(429).json({ 
-      error: 'Upload limit exceeded', 
-      message: 'You have reached your daily upload limit. Please wait until tomorrow or upgrade your subscription.' 
+  // Fast gate: already at limit before we even run Python
+  if (isQuotaExceeded(userDoc)) {
+    return res.status(429).json({
+      error: 'Upload limit exceeded',
+      message: 'You have reached your daily upload limit. Please wait until tomorrow or upgrade your subscription.'
     });
   }
 
@@ -236,63 +199,60 @@ exports.uploadFile = async (req, res) => {
     const analysisResult = await runPythonScript(ANALYZER_SCRIPT_PATH, args);
 
     if (analysisResult?.error?.trim() === 'password is wrong') {
-      return res.status(400).json({ error: 'password is wrong ' });
+      return res.status(400).json({ error: 'password is wrong' });
     }
 
-    console.log(`[Upload] Python returned ${analysisResult.results?.length ?? 0} result(s)`);
-    analysisResult.results?.forEach((s, i) =>
-      console.log(`[Upload] result[${i}]: filename=${s.filename}, file_path=${s.file_path}, analysis_error=${s.analysis?.error ?? 'none'}`)
-    );
+    const samples = analysisResult.results || [];
 
-    const results = [];
-    for (const sample of analysisResult.results || []) {
+    // Collect extracted file paths for cleanup
+    for (const sample of samples) {
       if (sample.file_path && sample.file_path !== filePath) {
         filesToCleanup.push(sample.file_path);
       }
-      const processedSample = await processSampleData(sample, userId, filePath);
-      results.push(processedSample);
     }
 
-    // Only count files actually stored in DB — not failures or duplicates
-    const newSamplesCount = results.filter(r => r.savedToDb).length;
-    console.log(`[Upload] newSamplesCount (stored in DB): ${newSamplesCount}`);
+    // ── Phase 1: hash every file + DB lookup, no writes ──────────────────────
+    const preChecks = [];
+    for (const sample of samples) {
+      const check = await preCheckSample(sample, userId);
+      preChecks.push(check);
+    }
 
-    // Post-extraction quota enforcement.
-    // We can only know how many files an archive contains after the Python script
-    // runs, so we validate here — before touching the DB — to prevent quota abuse
-    // via archives stuffed with many files.
-    if (userDoc && newSamplesCount > 0) {
-      let remainingQuota;
+    // ── Phase 2: quota gate ───────────────────────────────────────────────────
+    // Count only genuinely new files (not duplicates, not hash-failed)
+    const newFilesCount = preChecks.filter(c => c.isNew).length;
 
-      if (userDoc.isGuest) {
-        // req.remainingUploads is set by guestAbuse middleware; fall back to computing it
-        const dailyLimit = userDoc.dailyUploadLimit ?? 3;
-        remainingQuota = req.remainingUploads ?? Math.max(0, dailyLimit - (userDoc.uploadCount || 0));
-      } else {
-        remainingQuota = Math.max(0, (userDoc.uploadQuota || 3) - (userDoc.uploadCount || 0));
-      }
-
-      if (newSamplesCount > remainingQuota) {
+    if (userDoc && newFilesCount > 0) {
+      const quota = remainingQuota(userDoc, req);
+      if (newFilesCount > quota) {
         return res.status(429).json({
           error: 'Upload limit exceeded',
-          message: `This upload contains ${newSamplesCount} file(s) but you only have ${remainingQuota} upload(s) remaining. Every file inside an archive counts as one upload.`,
-          remainingUploads: remainingQuota,
-          samplesInUpload: newSamplesCount
+          message: `This upload contains ${newFilesCount} new file(s) but you only have ${quota} upload slot(s) remaining. Every file inside an archive counts as one upload.`,
+          remainingUploads: quota,
+          newFilesInUpload: newFilesCount
         });
       }
     }
 
-    if (userDoc && newSamplesCount > 0) {
-      console.log(`[Upload] Updating uploadCount for user ${userDoc._id}. Current count: ${userDoc.uploadCount}`);
+    // ── Phase 3: store + AI ───────────────────────────────────────────────────
+    const results = [];
+    for (let i = 0; i < samples.length; i++) {
+      const processed = await processSampleData(samples[i], userId, preChecks[i]);
+      results.push(processed);
+    }
+
+    // ── Phase 4: increment counter by files actually stored ───────────────────
+    const storedCount = results.filter(r => r.savedToDb).length;
+    if (userDoc && storedCount > 0) {
       await User.findByIdAndUpdate(userDoc._id, {
-        $inc: { uploadCount: newSamplesCount },
+        $inc: { uploadCount: storedCount },
         lastUploadDate: new Date()
       });
     }
 
     res.json({ results });
   } catch (error) {
-    console.error('Error processing file:', error);
+    console.error('[Upload] Unhandled error:', error);
     res.status(500).send(error.message);
   } finally {
     fs.unlink(filePath, () => {});
@@ -303,9 +263,7 @@ exports.uploadFile = async (req, res) => {
 exports.getPlot = (req, res) => {
   const filename = path.basename(req.params.filename);
   const filePath = path.join(__dirname, '..', 'plots', filename);
-
   res.sendFile(filePath, err => {
     if (err) res.status(404).send('Plot not found');
   });
 };
-
