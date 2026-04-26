@@ -59,7 +59,7 @@ jobs:
         PAYMOB_API_KEY: ${{ secrets.PAYMOB_API_KEY }}
         PAYMOB_HMAC_SECRET: ${{ secrets.PAYMOB_HMAC_SECRET }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+        GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
         AI_MODEL_TOKEN: ${{ secrets.AI_MODEL_TOKEN }}
       run: |
         # Install jq
