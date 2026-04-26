@@ -29,6 +29,12 @@ RUN python3 -m venv .venv && \
     .venv/bin/pip install --only-binary=all ssdeep==3.4 || .venv/bin/pip install --no-build-isolation ssdeep==3.4 && \
     .venv/bin/pip install -r py-scripts/requirements-extra.txt
 
+# Drop root privileges before starting the process.
+# The node:20 base image ships with a non-root "node" user (uid 1000).
+# We chown the app directory so that user can still write uploads/plots at runtime.
+RUN chown -R node:node /app
+USER node
+
 # Expose the port the app runs on
 EXPOSE 3000
 

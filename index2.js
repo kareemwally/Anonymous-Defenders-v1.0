@@ -74,9 +74,13 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Session setup
+if (!process.env.SESSION_SECRET) {
+  console.error('[FATAL] SESSION_SECRET is not set. Refusing to start with an insecure session secret.');
+  process.exit(1);
+}
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET,
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false
 }));

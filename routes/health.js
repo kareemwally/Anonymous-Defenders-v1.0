@@ -12,7 +12,8 @@ router.get('/', (req, res) => {
   });
 });
 
-// Detailed health check
+// Detailed health check — internal metrics omitted from public response
+// to avoid leaking process memory/CPU data to unauthenticated callers
 router.get('/detailed', (req, res) => {
   const health = {
     status: 'healthy',
@@ -22,12 +23,10 @@ router.get('/detailed', (req, res) => {
     service: 'anonymous-defenders-api',
     version: '1.0.0',
     checks: {
-      database: 'connected', // You can add actual DB check here
-      memory: process.memoryUsage(),
-      cpu: process.cpuUsage()
+      database: 'connected'
     }
   };
-  
+
   res.status(200).json(health);
 });
 

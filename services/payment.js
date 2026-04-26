@@ -265,16 +265,20 @@ class PaymobService {
     async handleTransaction(transaction) {
         try {
             const { success, pending, order } = transaction;
-            
+            const orderId = order ? String(order.id) : null;
+
             if (success && !pending) {
                 // Payment successful
-                const orderId = order ? String(order.id) : null;
-                if (orderId) {
-                    await this.activateSubscription(orderId);
+                if (!orderId) {
+                    // This should never happen with a valid Paymob payload.
+                    // Log it loudly so it can be investigated manually; Paymob has
+                    // already acknowledged the webhook so retries won't come.
+                    console.error('[Paymob] ALERT: Received successful transaction with no order object. Transaction ID:', transaction.id, '— subscription NOT activated. Manual investigation required.');
+                    return;
                 }
+                await this.activateSubscription(orderId);
             } else if (!success) {
                 // Payment failed
-                const orderId = order ? String(order.id) : null;
                 if (orderId) {
                     await this.updatePaymentStatus(orderId, 'failed');
                 }
