@@ -52,26 +52,23 @@ const guestAbusePrevention = async (req, res, next) => {
                         clientIP: clientIP
                     });
                 }
-                
-                // Check daily upload limit
+
+                // Atomic day-reset: only resets if lastUploadDate is from a previous day.
+                // Using findOneAndUpdate with a condition prevents two concurrent requests
+                // from both resetting the counter.
                 const today = new Date();
-                const lastUpload = guestUser.lastUploadDate;
-                const isNewDay = !lastUpload || 
-                    new Date(lastUpload).toDateString() !== today.toDateString();
-                
-                let currentUploadCount = guestUser.uploadCount;
-                
-                // Reset counter if it's a new day
-                if (isNewDay) {
-                    currentUploadCount = 0;
-                    await User.findByIdAndUpdate(guestUser._id, {
-                        uploadCount: 0,
-                        lastUploadDate: today
-                    });
-                }
-                
+                today.setHours(0, 0, 0, 0);
+                const resetResult = await User.findOneAndUpdate(
+                    { _id: guestUser._id, lastUploadDate: { $lt: today } },
+                    { $set: { uploadCount: 0, lastUploadDate: new Date() } },
+                    { new: true }
+                );
+                // Use the reset doc if the update fired, otherwise use the original
+                const freshGuest = resetResult || guestUser;
+                const currentUploadCount = resetResult ? 0 : guestUser.uploadCount;
+
                 // Check if over limit
-                if (currentUploadCount >= guestUser.dailyUploadLimit) {
+                if (currentUploadCount >= freshGuest.dailyUploadLimit) {
                     return res.status(429).json({
                         error: 'Daily upload limit exceeded for anonymous users',
                         limit: guestUser.dailyUploadLimit,
@@ -84,8 +81,8 @@ const guestAbusePrevention = async (req, res, next) => {
                 }
                 
                 // Add guest info to request for tracking
-                req.guestUser = guestUser;
-                req.remainingUploads = guestUser.dailyUploadLimit - currentUploadCount;
+                req.guestUser = freshGuest;
+                req.remainingUploads = freshGuest.dailyUploadLimit - currentUploadCount;
                 req.clientIP = clientIP;
             } else {
                 // Create new anonymous guest in DB to track them properly with guaranteed uniqueness

@@ -61,7 +61,11 @@ router.get('/tiers', async (req, res) => {
 router.post('/create-payment-intent/:tier', auth, async (req, res) => {
     try {
         const { tier } = req.params;
-        const { method = 'card', email } = req.body; // Support passing method and email in body
+        const validTiers = ['A', 'B', 'C', 'D'];
+        if (!validTiers.includes(tier)) {
+            return res.status(400).json({ success: false, error: `Invalid subscription tier. Must be one of: ${validTiers.join(', ')}` });
+        }
+        const { method = 'card', email } = req.body;
         const userId = req.user ? req.user._id : null;
         const userEmail = req.user ? req.user.email : email;
 

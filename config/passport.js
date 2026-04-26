@@ -27,15 +27,21 @@ const configurePassport = () => {
       let user = await User.findOne({ googleId: profile.id });
       if (!user) {
         const email = profile.emails[0].value;
-        user = await User.findOne({ $or: [{ email }, { username: email }] });
-        if (user) {
-          user.googleId = profile.id;
-          await user.save();
-          return done(null, user);
+        const existing = await User.findOne({ $or: [{ email }, { username: email }] });
+        if (existing) {
+          // Only auto-link if the account was created via OAuth (no password set).
+          // If a password exists the account belongs to someone who registered
+          // with email+password — require them to log in and link manually.
+          if (existing.password) {
+            return done(null, false, { message: 'An account with this email already exists. Please log in with your password.' });
+          }
+          existing.googleId = profile.id;
+          await existing.save();
+          return done(null, existing);
         }
         user = await User.create({
           name: profile.displayName,
-          email: email,
+          email,
           username: email,
           googleId: profile.id,
           role: 'other'
@@ -63,15 +69,19 @@ const configurePassport = () => {
       let email = (profile.emails && profile.emails[0] && profile.emails[0].value) || `${profile.username}@github.com`;
       let user = await User.findOne({ githubId: profile.id });
       if (!user) {
-        user = await User.findOne({ $or: [{ email }, { username: email }] });
-        if (user) {
-          user.githubId = profile.id;
-          await user.save();
-          return done(null, user);
+        const existing = await User.findOne({ $or: [{ email }, { username: email }] });
+        if (existing) {
+          // Only auto-link if the account has no password (pure OAuth account).
+          if (existing.password) {
+            return done(null, false, { message: 'An account with this email already exists. Please log in with your password.' });
+          }
+          existing.githubId = profile.id;
+          await existing.save();
+          return done(null, existing);
         }
         user = await User.create({
           name: profile.displayName || profile.username,
-          email: email,
+          email,
           username: email,
           githubId: profile.id,
           role: 'other'
