@@ -260,8 +260,22 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
-exports.getPlot = (req, res) => {
+exports.getPlot = async (req, res) => {
   const filename = path.basename(req.params.filename);
+
+  // Ownership check: verify a report belonging to this user references this plot
+  if (req.user) {
+    const userFiles = await File.find({ userId: req.user._id }).select('_id').lean();
+    const fileIds = userFiles.map(f => f._id);
+    const ownsPlot = await AnalysisReport.exists({
+      fileId: { $in: fileIds },
+      predictions_file: { $regex: filename, $options: 'i' }
+    });
+    if (!ownsPlot) {
+      return res.status(403).send('Access denied');
+    }
+  }
+
   const filePath = path.join(__dirname, '..', 'plots', filename);
   res.sendFile(filePath, err => {
     if (err) res.status(404).send('Plot not found');
