@@ -180,6 +180,11 @@ exports.uploadFile = async (req, res) => {
   const originalName = req.file.originalname;
   const password = req.body.password || '';
 
+  // Reject excessively long passwords before passing to subprocess
+  if (password.length > 256) {
+    return res.status(400).json({ error: 'Password must not exceed 256 characters' });
+  }
+
   const { userId, userDoc } = resolveUserIdentity(req);
 
   // Fast gate: already at limit before we even run Python
@@ -244,10 +249,15 @@ exports.uploadFile = async (req, res) => {
     // ── Phase 4: increment counter by files actually stored ───────────────────
     const storedCount = results.filter(r => r.savedToDb).length;
     if (userDoc && storedCount > 0) {
-      await User.findByIdAndUpdate(userDoc._id, {
-        $inc: { uploadCount: storedCount },
-        lastUploadDate: new Date()
-      });
+      const updated = await User.findByIdAndUpdate(
+        userDoc._id,
+        { $inc: { uploadCount: storedCount }, lastUploadDate: new Date() },
+        { new: true }
+      );
+      // Detect quota overflow caused by concurrent uploads (TOCTOU race condition)
+      if (updated && updated.uploadCount > (updated.uploadQuota || 3)) {
+        console.warn(`[Upload] Quota overflow for user ${userDoc._id}: uploadCount=${updated.uploadCount} quota=${updated.uploadQuota}`);
+      }
     }
 
     res.json({ results });

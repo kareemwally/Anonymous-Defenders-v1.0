@@ -285,19 +285,26 @@ class PaymobService {
         }
     }
 
-    // Save payment intent to database
+    // Save payment intent to database (upsert — safe against duplicate webhook replays)
     async savePaymentIntent(paymentData) {
         const Payment = require('../models/Payment');
         try {
-            await Payment.create({
-                user: paymentData.userId,
-                tier: paymentData.tier,
-                amount: paymentData.amount,
-                orderId: paymentData.orderId,
-                status: paymentData.status
-            });
+            await Payment.findOneAndUpdate(
+                { orderId: paymentData.orderId },
+                {
+                    $setOnInsert: {
+                        user: paymentData.userId,
+                        tier: paymentData.tier,
+                        amount: paymentData.amount,
+                        orderId: paymentData.orderId,
+                        status: paymentData.status
+                    }
+                },
+                { upsert: true, new: true }
+            );
         } catch (error) {
             console.error('Error saving Payment to DB:', error);
+            throw error; // re-throw so callers know the save failed
         }
     }
 
