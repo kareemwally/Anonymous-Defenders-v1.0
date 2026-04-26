@@ -120,7 +120,7 @@
         },
         {
           "name": "JWT_SECRET",
-          "value": "your-super-secret-jwt-key-change-this-in-production"
+          "value": "c2d810bba999a305281336557da89c73bec4ac47d6ff26a838bcb88e04c79a397df35611840a6d20e80eca33a5fadb5b"
         },
         {
           "name": "GOOGLE_CLIENT_ID",

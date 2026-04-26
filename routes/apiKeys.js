@@ -75,12 +75,21 @@ router.post('/', auth, createKeyLimit, async (req, res) => {
       });
     }
     
+    // Validate permissions against allowed values
+    const VALID_PERMISSIONS = ['upload', 'analyze', 'read'];
+    const sanitizedPermissions = permissions
+      ? permissions.filter(p => VALID_PERMISSIONS.includes(p))
+      : VALID_PERMISSIONS;
+    if (permissions && sanitizedPermissions.length === 0) {
+      return res.status(400).json({ error: `Invalid permissions. Allowed values: ${VALID_PERMISSIONS.join(', ')}` });
+    }
+
     // Generate new API key
     const newApiKey = new ApiKey({
       key: ApiKey.generateKey(),
       userId: req.user._id,
       name: name.trim(),
-      permissions: permissions || ['upload', 'analyze', 'read'],
+      permissions: sanitizedPermissions,
       rateLimit: {
         requestsPerDay: limits.requestsPerDay,
         requestsPerMonth: limits.requestsPerMonth
@@ -124,9 +133,22 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'API key not found' });
     }
     
+    const VALID_PERMISSIONS = ['upload', 'analyze', 'read'];
+    const VALID_STATUSES = ['active', 'inactive'];
     if (name) apiKey.name = name.trim();
-    if (permissions) apiKey.permissions = permissions;
-    if (status) apiKey.status = status;
+    if (permissions) {
+      const sanitized = permissions.filter(p => VALID_PERMISSIONS.includes(p));
+      if (sanitized.length === 0) {
+        return res.status(400).json({ error: `Invalid permissions. Allowed values: ${VALID_PERMISSIONS.join(', ')}` });
+      }
+      apiKey.permissions = sanitized;
+    }
+    if (status) {
+      if (!VALID_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `Invalid status. Allowed values: ${VALID_STATUSES.join(', ')}` });
+      }
+      apiKey.status = status;
+    }
     
     await apiKey.save();
     
