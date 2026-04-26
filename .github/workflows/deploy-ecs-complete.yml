@@ -60,6 +60,7 @@ jobs:
         PAYMOB_HMAC_SECRET: ${{ secrets.PAYMOB_HMAC_SECRET }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+        SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         AI_MODEL_TOKEN: ${{ secrets.AI_MODEL_TOKEN }}
       run: |
         # Install jq
@@ -77,6 +78,7 @@ jobs:
           --arg paymob_hmac      "$PAYMOB_HMAC_SECRET" \
           --arg google_secret    "$GOOGLE_CLIENT_SECRET" \
           --arg github_secret    "$GITHUB_CLIENT_SECRET" \
+          --arg session_secret   "$SESSION_SECRET" \
           --arg ai_token         "$AI_MODEL_TOKEN" \
           '
           .containerDefinitions[0].image = $image |
@@ -87,6 +89,7 @@ jobs:
           (.containerDefinitions[0].environment[] | select(.name == "PAYMOB_HMAC_SECRET")).value   = $paymob_hmac |
           (.containerDefinitions[0].environment[] | select(.name == "GOOGLE_CLIENT_SECRET")).value = $google_secret |
           (.containerDefinitions[0].environment[] | select(.name == "GITHUB_CLIENT_SECRET")).value = $github_secret |
+          (.containerDefinitions[0].environment[] | select(.name == "SESSION_SECRET")).value       = $session_secret |
           (.containerDefinitions[0].environment[] | select(.name == "AI_MODEL_TOKEN")).value       = $ai_token
           ' ecs-task-definition-simple.json > temp-task-definition.json
 
