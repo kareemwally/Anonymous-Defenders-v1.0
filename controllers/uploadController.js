@@ -11,6 +11,11 @@ const ANALYZER_SCRIPT_PATH = path.join('py-scripts', 'static_malware_analyzer.py
 const HASH_SCRIPT_PATH = path.join('py-scripts', 'get-hashes.py');
 const PLOTS_BASE_URL = process.env.PLOTS_BASE_URL || process.env.OAUTH_CALLBACK_BASE?.replace(/\/$/, '') || '';
 
+// Absolute path of the directory where multer stores uploads.
+// Cleanup is only allowed inside this directory to prevent a malicious archive
+// (or a compromised Python script) from causing arbitrary file deletions.
+const UPLOADS_DIR = path.resolve('uploads');
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function resolveUserIdentity(req) {
@@ -209,10 +214,17 @@ exports.uploadFile = async (req, res) => {
 
     const samples = analysisResult.results || [];
 
-    // Collect extracted file paths for cleanup
+    // Collect extracted file paths for cleanup.
+    // Validate every path against UPLOADS_DIR to guard against path-traversal
+    // in Python subprocess output (e.g. a ZIP entry extracted to ../../etc/passwd).
     for (const sample of samples) {
       if (sample.file_path && sample.file_path !== filePath) {
-        filesToCleanup.push(sample.file_path);
+        const resolved = path.resolve(sample.file_path);
+        if (resolved.startsWith(UPLOADS_DIR + path.sep) || resolved.startsWith(UPLOADS_DIR)) {
+          filesToCleanup.push(resolved);
+        } else {
+          console.warn('[Upload] Ignoring suspicious cleanup path outside uploads dir:', sample.file_path);
+        }
       }
     }
 

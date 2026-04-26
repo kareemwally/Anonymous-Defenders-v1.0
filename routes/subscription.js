@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Team = require('../models/Team');
 const PaymobService = require('../services/payment');
 const auth = require('../middleware/auth');
 
@@ -170,12 +171,28 @@ router.post('/cancel', auth, async (req, res) => {
             });
         }
 
-        // Just set isActiveSubscription to false so it won't renew, 
-        // but we DON'T change subscriptionEndDate so they keep their current access.
-        await User.findByIdAndUpdate(req.user._id, {
-            isActiveSubscription: false
-        });
-        
+        // Mark owner's subscription as not renewing.
+        // subscriptionEndDate is preserved so they retain access until period ends.
+        const owner = await User.findByIdAndUpdate(
+            req.user._id,
+            { isActiveSubscription: false },
+            { new: true }
+        );
+
+        // Cascade: if the owner has a team, also mark all active members as not
+        // renewing so the team subscription doesn't appear active after it expires.
+        // Members keep their subscriptionEndDate (access until period ends) but
+        // isActiveSubscription: false means optionalAuth will expire them correctly.
+        if (owner && owner.teamRole === 'owner' && owner.teamId) {
+            const team = await Team.findById(owner.teamId);
+            if (team) {
+                const activeMembers = team.members.filter(m => m.status === 'active' && m.userId);
+                await Promise.all(activeMembers.map(m =>
+                    User.updateOne({ _id: m.userId }, { $set: { isActiveSubscription: false } })
+                ));
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Subscription renewal cancelled. You will still have access until your current period ends.'

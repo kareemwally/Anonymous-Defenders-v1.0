@@ -46,6 +46,11 @@ exports.signup = async (req, res) => {
       token
     });
   } catch (error) {
+    // E11000: duplicate key — race condition where two concurrent signups with the
+    // same email both passed the findOne check but only one save() succeeded.
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Server error during signup' });
   }

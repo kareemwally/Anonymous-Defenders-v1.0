@@ -18,9 +18,17 @@ const apiKeyAuth = async (req, res, next) => {
       .populate('userId', 'name email subscription');
     
     if (!keyDoc) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         error: 'Invalid API key',
         message: 'The provided API key is invalid or inactive'
+      });
+    }
+
+    // Guard: if the owning user was deleted, userId will be null after populate
+    if (!keyDoc.userId) {
+      return res.status(401).json({
+        error: 'Invalid API key',
+        message: 'The account associated with this API key no longer exists'
       });
     }
     
