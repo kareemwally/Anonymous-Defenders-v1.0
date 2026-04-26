@@ -1,7 +1,0 @@
-I need to add two features to the project 
-1. subscription system :
-    which has four subscription tiers (A,B,C,D) all with a spesific number of uploads (quota) and spesific price 
-    And also guest users are allowed to upload but with a limit of 3 upload per day so we need to watch for any abuse by 
-    mapping the guest user with their mac address or any safe tool that prevents abuse
-    the 3rd party that will be used is Paymob
-    and you will see the new erd used in the project
