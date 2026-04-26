@@ -51,13 +51,45 @@ jobs:
         
     - name: Register Amazon ECS task definition
       id: register-task-definition
+      env:
+        IMAGE: ${{ steps.build-image.outputs.image }}
+        DB_URI: ${{ secrets.DB_URI }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        PAYMOB_API_KEY: ${{ secrets.PAYMOB_API_KEY }}
+        PAYMOB_HMAC_SECRET: ${{ secrets.PAYMOB_HMAC_SECRET }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+        AI_MODEL_TOKEN: ${{ secrets.AI_MODEL_TOKEN }}
       run: |
         # Install jq
         sudo apt-get update && sudo apt-get install -y jq
-        
-        # Update task definition with new image
-        jq '.containerDefinitions[0].image = "${{ steps.build-image.outputs.image }}"' ecs-task-definition-simple.json > temp-task-definition.json
-        
+
+        # Inject image + all secrets into the task definition.
+        # Secrets are passed via env vars (never interpolated directly into the
+        # shell command) so they don't leak into the runner logs or process list.
+        jq \
+          --arg image            "$IMAGE" \
+          --arg db_uri           "$DB_URI" \
+          --arg jwt_secret       "$JWT_SECRET" \
+          --arg email_pass       "$EMAIL_PASS" \
+          --arg paymob_api_key   "$PAYMOB_API_KEY" \
+          --arg paymob_hmac      "$PAYMOB_HMAC_SECRET" \
+          --arg google_secret    "$GOOGLE_CLIENT_SECRET" \
+          --arg github_secret    "$GITHUB_CLIENT_SECRET" \
+          --arg ai_token         "$AI_MODEL_TOKEN" \
+          '
+          .containerDefinitions[0].image = $image |
+          (.containerDefinitions[0].environment[] | select(.name == "DB_URI")).value               = $db_uri |
+          (.containerDefinitions[0].environment[] | select(.name == "JWT_SECRET")).value           = $jwt_secret |
+          (.containerDefinitions[0].environment[] | select(.name == "EMAIL_PASS")).value           = $email_pass |
+          (.containerDefinitions[0].environment[] | select(.name == "PAYMOB_API_KEY")).value       = $paymob_api_key |
+          (.containerDefinitions[0].environment[] | select(.name == "PAYMOB_HMAC_SECRET")).value   = $paymob_hmac |
+          (.containerDefinitions[0].environment[] | select(.name == "GOOGLE_CLIENT_SECRET")).value = $google_secret |
+          (.containerDefinitions[0].environment[] | select(.name == "GITHUB_CLIENT_SECRET")).value = $github_secret |
+          (.containerDefinitions[0].environment[] | select(.name == "AI_MODEL_TOKEN")).value       = $ai_token
+          ' ecs-task-definition-simple.json > temp-task-definition.json
+
         # Register task definition
         aws ecs register-task-definition --cli-input-json file://temp-task-definition.json --output text > task-definition.json
         TASK_REVISION=$(cat task-definition.json | grep revision | awk '{print $2}')
