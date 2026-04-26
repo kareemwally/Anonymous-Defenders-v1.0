@@ -1,6 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
+
+// Strict limiter for the status endpoint — it creates a DB record on first visit
+const guestStatusLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' }
+});
 
 // Helper function to get client IP
 const getClientIP = (req) => {
@@ -41,7 +51,7 @@ const generateGuestId = () => {
 };
 
 // Get Guest Status (Anonymous - no registration)
-router.get('/status', async (req, res) => {
+router.get('/status', guestStatusLimiter, async (req, res) => {
     try {
         const clientIP = getClientIP(req);
         

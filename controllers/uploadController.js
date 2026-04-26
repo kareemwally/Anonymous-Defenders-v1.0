@@ -263,7 +263,7 @@ exports.uploadFile = async (req, res) => {
     res.json({ results });
   } catch (error) {
     console.error('[Upload] Unhandled error:', error);
-    res.status(500).send(error.message);
+    res.status(500).json({ error: 'Internal server error' });
   } finally {
     fs.unlink(filePath, () => {});
     filesToCleanup.forEach(f => fs.unlink(f, () => {}));

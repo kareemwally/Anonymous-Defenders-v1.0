@@ -16,14 +16,26 @@ const optionalAuth = async (req, res, next) => {
       const user = await User.findById(decoded.userId).select('-password');
       
             if (user) {
-        // Daily reset for free registered users
-        const today = new Date().toDateString();
-                if (!user.isActiveSubscription) {
-            const lastUpload = user.lastUploadDate ? new Date(user.lastUploadDate).toDateString() : null;
-            if (lastUpload !== today) {
-                user.uploadCount = 0;
-                await User.updateOne({ _id: user._id }, { $set: { uploadCount: 0 } });
-            }
+        const now = new Date();
+
+        if (user.isActiveSubscription) {
+          // Monthly reset for paid subscribers — reset uploadCount when the
+          // calendar month rolls over (ensures quota refreshes each month)
+          const last = user.lastUploadDate ? new Date(user.lastUploadDate) : null;
+          const newMonth = !last ||
+            last.getMonth() !== now.getMonth() ||
+            last.getFullYear() !== now.getFullYear();
+          if (newMonth && user.uploadCount > 0) {
+            user.uploadCount = 0;
+            await User.updateOne({ _id: user._id }, { $set: { uploadCount: 0 } });
+          }
+        } else {
+          // Daily reset for free registered users
+          const lastUpload = user.lastUploadDate ? new Date(user.lastUploadDate).toDateString() : null;
+          if (lastUpload !== now.toDateString()) {
+            user.uploadCount = 0;
+            await User.updateOne({ _id: user._id }, { $set: { uploadCount: 0 } });
+          }
         }
 
         // Check for subscription expiry
