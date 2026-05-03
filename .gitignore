@@ -198,5 +198,7 @@ Install commands.txt
 
 *.ps1
 *.md
+!README.md
+!docs/*.md
 infra-details.txt
 scripts/
