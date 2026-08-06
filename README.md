@@ -1,6 +1,6 @@
 # Anonymous Defenders — Backend API
 
-A malware analysis platform that lets users upload files (executables, archives, scripts) and receive static analysis reports powered by a PyTorch AI model. Supports guest access, registered users, subscription plans, team accounts, and a programmatic API key system.
+A malware analysis platform that lets all users upload files (executables, archives, scripts) and receive static analysis reports powered by a PyTorch AI model. Supports guest access, registered users, subscription plans, team accounts, and a programmatic API key system.
 
 **Production:** `https://anonymousdefenders.com`  
 **Frontend:** `https://anonymous-defenders.vercel.app`  
