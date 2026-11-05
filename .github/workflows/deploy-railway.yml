@@ -1,0 +1,112 @@
+name: Build & Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Prevents two pushes from deploying out of order
+concurrency:
+  group: deploy-railway
+  cancel-in-progress: false
+
+# Non-secret configuration only. Secrets are referenced inline below.
+env:
+  NODE_ENV: production
+  FRONTEND_URL: https://anonymous-defenders.vercel.app
+  OAUTH_CALLBACK_BASE: https://anonymous-defenders.up.railway.app
+  PLOTS_BASE_URL: https://anonymous-defenders.up.railway.app
+  EMAIL_HOST: smtp.gmail.com
+  EMAIL_PORT: "587"
+  EMAIL_USER: kareemwally7@gmail.com
+  SUPPORT_EMAIL: kareemwally7@gmail.com
+  GOOGLE_CLIENT_ID: 1024342754623-d3daqj75k2urr5q8v82uo2q2pn4im7vo.apps.googleusercontent.com
+  GITHUB_CLIENT_ID: Ov23liMiCLgjiZGvrREv
+  PAYMOB_CARD_INTEGRATION_ID: "5573844"
+  PAYMOB_WALLET_INTEGRATION_ID: "5572396"
+  PAYMOB_INTEGRATION_ID: "5573844"
+  PAYMOB_IFRAME_ID: "1013390"
+  AI_SERVER_URL: https://8000-dep-01kh64w5vt38j5mgghgd0ps40c-d.cloudspaces.litng.ai
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image name (GHCR requires lowercase)
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      # Secrets are passed through the step env (never interpolated into the
+      # script body) so they never appear in runner logs or the process list.
+      - name: Inject environment variables into Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          DB_URI: ${{ secrets.DB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          PAYMOB_API_KEY: ${{ secrets.PAYMOB_API_KEY }}
+          PAYMOB_HMAC_SECRET: ${{ secrets.PAYMOB_HMAC_SECRET }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+          AI_MODEL_TOKEN: ${{ secrets.AI_MODEL_TOKEN }}
+        run: |
+          railway variable set -s ${{ secrets.RAILWAY_SERVICE_ID }} -e production --skip-deploys \
+            "NODE_ENV=$NODE_ENV" \
+            "FRONTEND_URL=$FRONTEND_URL" \
+            "OAUTH_CALLBACK_BASE=$OAUTH_CALLBACK_BASE" \
+            "PLOTS_BASE_URL=$PLOTS_BASE_URL" \
+            "EMAIL_HOST=$EMAIL_HOST" \
+            "EMAIL_PORT=$EMAIL_PORT" \
+            "EMAIL_USER=$EMAIL_USER" \
+            "EMAIL_PASS=$EMAIL_PASS" \
+            "SUPPORT_EMAIL=$SUPPORT_EMAIL" \
+            "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" \
+            "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET" \
+            "GITHUB_CLIENT_ID=$GITHUB_CLIENT_ID" \
+            "GITHUB_CLIENT_SECRET=$GITHUB_CLIENT_SECRET" \
+            "PAYMOB_API_KEY=$PAYMOB_API_KEY" \
+            "PAYMOB_CARD_INTEGRATION_ID=$PAYMOB_CARD_INTEGRATION_ID" \
+            "PAYMOB_WALLET_INTEGRATION_ID=$PAYMOB_WALLET_INTEGRATION_ID" \
+            "PAYMOB_INTEGRATION_ID=$PAYMOB_INTEGRATION_ID" \
+            "PAYMOB_IFRAME_ID=$PAYMOB_IFRAME_ID" \
+            "PAYMOB_HMAC_SECRET=$PAYMOB_HMAC_SECRET" \
+            "AI_SERVER_URL=$AI_SERVER_URL" \
+            "AI_MODEL_TOKEN=$AI_MODEL_TOKEN" \
+            "DB_URI=$DB_URI" \
+            "JWT_SECRET=$JWT_SECRET" \
+            "SESSION_SECRET=$SESSION_SECRET"
+
+      - name: Redeploy Railway service with new image
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway redeploy -s ${{ secrets.RAILWAY_SERVICE_ID }} --yes

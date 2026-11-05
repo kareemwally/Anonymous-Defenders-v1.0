@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+node_modules
+.venv
+uploads
+plots
+*.log
+.env
+.env.*
+config.env
+Dockerfile
+docker-compose*.yml
